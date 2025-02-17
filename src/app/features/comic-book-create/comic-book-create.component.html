@@ -1,0 +1,107 @@
+<div class="max-w-4xl mx-auto p-4 bg-white">
+  <!-- Progress Indicator -->
+  <div class="progress-indicator">
+    <ul class="flex justify-between">
+      <li *ngFor="let step of [1,2,3,4]; let i = index" class="flex-1 text-center">
+        <div [ngClass]="{'bg-blue-600 text-white': currentStep === i, 'bg-gray-200 text-gray-600': currentStep !== i}" class="w-8 h-8 mx-auto rounded-full flex items-center justify-center">
+          {{ i + 1 }}
+        </div>
+        <p class="mt-2 text-sm" *ngIf="i === 0">Details</p>
+        <p class="mt-2 text-sm" *ngIf="i === 1">Scene 1</p>
+        <p class="mt-2 text-sm" *ngIf="i === 2">Scenes 2-6</p>
+        <p class="mt-2 text-sm" *ngIf="i === 3">Review</p>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Add form tag here -->
+  <form [formGroup]="comicForm">
+    <!-- Form Steps with Sliding Animation -->
+    <div>
+      <!-- Step 1: Comic Book Title & Description -->
+      <div *ngIf="currentStep === 0" [@slideInOut] class="step">
+        <h2 class="text-2xl font-bold mb-4">Comic Book Details</h2>
+        <div>
+          <label class="block mb-1">Title</label>
+          <input type="text" formControlName="title" class="border p-2 w-full">
+        </div>
+        <div class="mt-4">
+          <label class="block mb-1">Description</label>
+          <textarea formControlName="description" class="border p-2 w-full" rows="4"></textarea>
+        </div>
+      </div>
+
+      <!-- Step 2: Scene 1 -->
+      <div *ngIf="currentStep === 1" [@slideInOut] class="step scene-container">
+        <h2 class="text-2xl font-bold mb-4">Scene 1</h2>
+        <div [formGroup]="getSceneFormGroup(0)">
+          <div>
+            <label class="block mb-1">Image</label>
+            <input type="file" formControlName="image" class="border p-2 w-full">
+          </div>
+          <div class="mt-4">
+            <label class="block mb-1">Description</label>
+            <textarea formControlName="description" class="border p-2 w-full" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Additional Scenes (Optional) -->
+      <div *ngIf="currentStep === 2" [@slideInOut] class="step scene-container">
+        <h2 class="text-2xl font-bold mb-4">Additional Scenes (Optional)</h2>
+        <div formArrayName="scenes">
+          <ng-container *ngFor="let scene of scenes.controls; let i = index">
+            <div [formGroupName]="i" class="mb-6" *ngIf="i > 0">
+              <h3 class="font-semibold">Scene {{ i + 1 }}</h3>
+              <div>
+                <label class="block mb-1">Image</label>
+                <input type="file" formControlName="image" class="border p-2 w-full">
+              </div>
+              <div class="mt-2">
+                <label class="block mb-1">Description</label>
+                <textarea formControlName="description" class="border p-2 w-full" rows="3"></textarea>
+              </div>
+              <button type="button" (click)="removeScene(i)" class="mt-2 text-red-600">Remove Scene</button>
+            </div>
+          </ng-container>
+          <button type="button" (click)="addScene()" class="mt-4 bg-green-500 text-white py-2 px-4 rounded" *ngIf="scenes.length < 6">
+            Add Another Scene
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 4: Review & Preview -->
+      <div *ngIf="currentStep === 3" [@slideInOut] class="step">
+        <h2 class="text-2xl font-bold mb-4">Review Your Comic Book</h2>
+        <div class="mb-4">
+          <h3 class="font-semibold">Title:</h3>
+          <p>{{ comicForm.value.title }}</p>
+        </div>
+        <div class="mb-4">
+          <h3 class="font-semibold">Description:</h3>
+          <p>{{ comicForm.value.description }}</p>
+        </div>
+        <div>
+          <h3 class="font-semibold">Scenes:</h3>
+          <div *ngFor="let scene of comicForm.value.scenes; let i = index" class="mb-2">
+            <p class="font-semibold">Scene {{ i + 1 }}:</p>
+            <p>Image: {{ scene.image ? 'Selected' : 'Not selected' }}</p>
+            <p>Description: {{ scene.description }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="mt-8 flex justify-between">
+      <button type="button" (click)="prevStep()" [disabled]="currentStep === 0"
+              class="bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400">
+        Previous
+      </button>
+      <button type="button" (click)="currentStep < totalSteps - 1 ? nextStep() : submit()"
+              class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+        {{ currentStep < totalSteps - 1 ? 'Next' : 'Submit' }}
+      </button>
+    </div>
+  </form>
+</div>
