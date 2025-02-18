@@ -1,11 +1,20 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ComicBookService } from '../../core/services/comic-book.service';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { trigger, transition, style, animate, state } from '@angular/animations';
-import { SceneCreateRequest } from '../../core/models/api.models';
+import { SceneCreateRequest, ComicBookListResponse } from '../../core/models/api.models';
+import { ToastrService } from 'ngx-toastr';
+import { SceneManagerComponent } from '../scene-manager/scene-manager.component';
+import { IScene } from '../../core/models/scene-management.models';
+
+
+export interface Step {
+  label: string;
+  description?: string;
+}
+
 
 @Component({
   selector: 'app-comic-book-create',
@@ -13,7 +22,7 @@ import { SceneCreateRequest } from '../../core/models/api.models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink
+    SceneManagerComponent
   ],
   templateUrl: './comic-book-create.component.html',
   styleUrls: ['./comic-book-create.component.css'],
@@ -37,15 +46,28 @@ import { SceneCreateRequest } from '../../core/models/api.models';
   ]
 })
 export class ComicBookCreateComponent implements OnInit, OnDestroy {
+  steps: Step[] = [
+    { label: 'Details', description: 'Basic comic book information' },
+    { label: 'Scenes', description: 'Add and arrange your scenes' },
+    { label: 'Review', description: 'Review and submit' }
+  ];
+
   comicForm!: FormGroup;
   currentStep = 0;
-  totalSteps = 4;
+  totalSteps = this.steps.length;
   private destroy$ = new Subject<void>();
   isProcessing = false;
+  incompleteComicBooks: ComicBookListResponse[] = [];
+  selectedComicBookId = new FormControl('new');
+  isDuplicateTitle = false;
+  scenesValid = false;
+  @ViewChild(SceneManagerComponent)
+  sceneManagerComponent!: SceneManagerComponent;
 
   constructor(
     private fb: FormBuilder,
-    private comicBookService: ComicBookService
+    private comicBookService: ComicBookService,
+    private toastr: ToastrService
   ) {
     this.initForm();
   }
@@ -54,6 +76,17 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     if (!this.comicForm) {
       this.initForm();
     }
+    this.loadIncompleteComicBooks();
+
+    // Subscribe to title changes
+    this.comicForm.get('title')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(title => {
+        this.isDuplicateTitle = this.checkDuplicateTitle(title);
+      });
+
+    // Set initial dropdown state
+    this.updateDropdownState();
   }
 
   ngOnDestroy() {
@@ -70,6 +103,29 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     this.addScene();
   }
 
+  private checkDuplicateTitle(title: string): boolean {
+    if (!title || this.selectedComicBookId.value !== 'new') {
+      return false;
+    }
+
+    const normalizedTitle = title.trim().toLowerCase();
+    return this.incompleteComicBooks.some(comic =>
+      comic.title.trim().toLowerCase() === normalizedTitle
+    );
+  }
+
+  private updateDropdownState() {
+    if (this.currentStep === 0) {
+      if (this.selectedComicBookId.disabled) {
+        this.selectedComicBookId.enable();
+      }
+    } else {
+      if (this.selectedComicBookId.enabled) {
+        this.selectedComicBookId.disable();
+      }
+    }
+  }
+
   async nextStep() {
     if (this.isProcessing) return;
 
@@ -77,20 +133,54 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
       this.isProcessing = true;
 
       if (this.currentStep === 0) {
-        // Save initial comic book details
-        await this.saveComicBookDetails();
-      } else if (this.currentStep === 1) {
-        // Save first scene
-        await this.saveScene(0);
-      } else if (this.currentStep === 2) {
-        // Save additional scenes
-        for (let i = 1; i < this.scenes.length; i++) {
-          await this.saveScene(i);
+        if (this.selectedComicBookId.value === 'new') {
+          // Check for duplicate title one more time before creating
+          if (this.checkDuplicateTitle(this.comicForm.get('title')?.value)) {
+            this.toastr.error('A comic book with this title already exists');
+            return;
+          }
+          // Save initial comic book details
+          await this.saveComicBookDetails();
+        } else {
+          // Get the current selected comic book
+          const selectedComic = this.incompleteComicBooks.find(
+            comic => comic.comicBookId === this.selectedComicBookId.value
+          );
+
+          // Get current form values
+          const currentTitle = this.comicForm.get('title')?.value?.trim();
+          const currentDescription = this.comicForm.get('description')?.value?.trim();
+
+          // Check if values have actually changed
+          if (selectedComic &&
+              (currentTitle !== selectedComic.title.trim() ||
+               currentDescription !== selectedComic.description.trim())) {
+            // Update existing comic book only if changes were made
+            const updateRequest = {
+              title: currentTitle,
+              description: currentDescription
+            };
+            await this.comicBookService.updateComicBook(
+              this.selectedComicBookId.value ?? '',
+              updateRequest
+            ).toPromise();
+          }
         }
+      } else if (this.currentStep === 1) {
+        // Trigger scene validation and save
+        const sceneManager = this.sceneManagerComponent;
+        if (!sceneManager.validateAllScenes()) {
+          this.toastr.error('Please complete all required fields for at least one scene');
+          return;
+        }
+
+        // Save scenes
+        await this.saveScenes(sceneManager.state.scenes);
       }
 
       if (this.currentStep < this.totalSteps - 1) {
         this.currentStep++;
+        this.updateDropdownState();
       }
     } catch (error) {
       console.error('Error saving progress:', error);
@@ -100,6 +190,31 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     }
   }
 
+  isButtonDisabled(): boolean {
+    if (this.currentStep === 0) {
+      return !this.comicForm.get('title')?.value ||
+             !this.comicForm.get('description')?.value ||
+             this.isDuplicateTitle;
+    }
+    if (this.currentStep === 1) {
+      return this.sceneManagerComponent?.state.scenes.length === 0;
+    }
+    return false;
+  }
+
+  handleScenesUpdated(scenes: IScene[]) {
+    // Update your form or state as needed
+    const scenesArray = this.comicForm.get('scenes') as FormArray;
+    scenesArray.clear();
+
+    scenes.forEach(scene => {
+      scenesArray.push(this.fb.group({
+        image: [scene.imageFile || scene.imagePath],
+        description: [scene.description]
+      }));
+    });
+  }
+
   private async saveComicBookDetails(): Promise<void> {
     if (this.comicForm.get('title')?.valid && this.comicForm.get('description')?.valid) {
       const request = {
@@ -107,7 +222,20 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
         description: this.comicForm.get('description')?.value
       };
 
-      await this.comicBookService.createInitialComicBook(request).toPromise();
+      const response = await this.comicBookService.createInitialComicBook(request).toPromise();
+      if (response) {
+        // Add the new comic book to the list and select it
+        const newComic: ComicBookListResponse = {
+          comicBookId: response.comicBookId,
+          title: request.title,
+          description: request.description,
+          isCompleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        this.incompleteComicBooks = [...this.incompleteComicBooks, newComic];
+        this.selectedComicBookId.setValue(response.comicBookId);
+      }
     }
   }
 
@@ -129,6 +257,20 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
         imagePath: await this.handleImageUpload(sceneGroup.get('image')?.value)
       };
 
+      await this.comicBookService.createScene(request).toPromise();
+    }
+  }
+
+  private async saveScenes(scenes: IScene[]): Promise<void> {
+    // Save all scenes in order
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
+      const request: SceneCreateRequest = {
+        comicBookId: this.selectedComicBookId.value ?? '',
+        sceneOrder: i,
+        userDescription: scene.description,
+        imagePath: scene.imageFile ? await this.handleImageUpload(scene.imageFile) : scene.imagePath
+      };
       await this.comicBookService.createScene(request).toPromise();
     }
   }
@@ -165,6 +307,7 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
   prevStep() {
     if (this.currentStep > 0) {
       this.currentStep--;
+      this.updateDropdownState();
     }
   }
 
@@ -174,6 +317,41 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
       // Stub: Integrate with a service to send data to the backend.
     } else {
       console.log('Form is invalid.');
+    }
+  }
+
+  private loadIncompleteComicBooks() {
+    this.comicBookService.getIncompleteComicBooks()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (comics) => {
+          this.incompleteComicBooks = comics;
+        },
+        error: (error) => {
+          this.toastr.error('Error retrieving incomplete comic books');
+          this.incompleteComicBooks = [];
+        }
+      });
+  }
+
+  onComicBookSelect(event: Event) {
+    const selectElement = event.target as HTMLSelectElement;
+    const selectedId = selectElement.value;
+
+    if (selectedId === 'new') {
+      this.comicForm.patchValue({
+        title: '',
+        description: ''
+      });
+      return;
+    }
+
+    const selectedComic = this.incompleteComicBooks.find(comic => comic.comicBookId === selectedId);
+    if (selectedComic) {
+      this.comicForm.patchValue({
+        title: selectedComic.title,
+        description: selectedComic.description
+      });
     }
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, map } from 'rxjs';
 import { ApiBaseService } from './api-base.service';
 import { ToastrService } from 'ngx-toastr';
 import {
@@ -11,14 +11,20 @@ import {
   ComicBookUpdateResponse,
   ComicBookDeleteResponse,
   SceneCreateRequest,
-  SceneCreateResponse
+  SceneCreateResponse,
+  ComicBookListResponse,
+  SceneUpdateRequest,
+  SceneUpdateResponse,
+  SceneGetResponse
 } from '../models/api.models';
+import { ApiResponse } from '../models/api.models';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ComicBookService extends ApiBaseService {
   private currentComicBookId = new BehaviorSubject<string | null>(null);
+  private currentScenes = new BehaviorSubject<Map<string, SceneCreateResponse>>(new Map());
 
   constructor(http: HttpClient, toastr: ToastrService) {
     super(http, toastr);
@@ -60,5 +66,47 @@ export class ComicBookService extends ApiBaseService {
 
   deleteComicBook(id: string): Observable<ComicBookDeleteResponse> {
     return this.delete<ComicBookDeleteResponse>(`ComicBook/${id}`);
+  }
+
+  getIncompleteComicBooks(): Observable<ComicBookListResponse[]> {
+    return this.get<ComicBookListResponse[]>(`ComicBook/incomplete`)
+      .pipe(
+        map(response => {
+          return response ?? [];
+        })
+      );
+  }
+
+
+  // Scene Management
+  updateSceneOrder(comicBookId: string, scenes: { sceneId: string; order: number }[]): Observable<void> {
+    return this.put<void>(`ComicBook/${comicBookId}/scenes/reorder`, { scenes });
+  }
+
+  uploadSceneImage(file: File): Observable<string> {
+    const formData = this.createFormData(file);
+    return this.post<{ imagePath: string }>('upload/scene-image', formData)
+      .pipe(map(response => response.imagePath));
+  }
+
+  // Method to store current scenes in memory
+  setCurrentScenes(scenes: SceneCreateResponse[]) {
+    const sceneMap = new Map();
+    scenes.forEach(scene => sceneMap.set(scene.sceneId, scene));
+    this.currentScenes.next(sceneMap);
+  }
+
+  getCurrentScenes(): Observable<Map<string, SceneCreateResponse>> {
+    return this.currentScenes.asObservable();
+  }
+
+  // Method to update a single scene
+  updateScene(sceneId: string, request: SceneUpdateRequest): Observable<SceneUpdateResponse> {
+    return this.put<SceneUpdateResponse>(`ComicBook/scene/${sceneId}`, request);
+  }
+
+  // Method to get scenes for a comic book
+  getScenes(comicBookId: string): Observable<SceneGetResponse[]> {
+    return this.get<SceneGetResponse[]>(`ComicBook/${comicBookId}/scenes`);
   }
 }

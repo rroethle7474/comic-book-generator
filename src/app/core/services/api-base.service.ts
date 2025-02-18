@@ -61,9 +61,6 @@ export class ApiBaseService {
       params
     }).pipe(
       map(response => this.extractData<T>(response)),
-      tap(response => {
-        this.toastr.success('Data retrieved successfully', 'Success');
-      }),
       catchError(error => this.formatErrors(error))
     );
   }

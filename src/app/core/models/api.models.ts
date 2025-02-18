@@ -17,6 +17,7 @@ export interface ComicBookCreateRequest {
 export interface ComicBookUpdateRequest {
     title?: string;
     description?: string;
+    isCompleted?: boolean;
 }
 
 export interface ComicBookCreateResponse {
@@ -28,18 +29,30 @@ export interface ComicBookGetResponse {
     comicBookId: string;
     title: string;
     description: string | null;
+    isCompleted: boolean;
     scenes: SceneGetResponse[];
 }
 
 export interface ComicBookUpdateResponse {
     comicBookId: string;
     title: string;
+    isCompleted: boolean;
     description: string | null;
 }
 
 export interface ComicBookDeleteResponse {
     comicBookId: string;
     isDeleted: boolean;
+}
+
+// Comic Book List Response
+export interface ComicBookListResponse {
+    comicBookId: string;
+    title: string;
+    description: string;
+    isCompleted: boolean;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 // Scene DTOs
