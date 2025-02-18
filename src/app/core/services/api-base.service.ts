@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from '../models/api.models';
+import { ToastrService } from 'ngx-toastr';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,10 @@ import { ApiResponse } from '../models/api.models';
 export class ApiBaseService {
   protected baseUrl = environment.apiBaseUrl;
 
-  constructor(protected http: HttpClient) {}
+  constructor(
+    protected http: HttpClient,
+    private toastr: ToastrService
+  ) {}
 
   protected createHeaders(): HttpHeaders {
     return new HttpHeaders({
@@ -40,6 +44,7 @@ export class ApiBaseService {
       }
     }
 
+    this.toastr.error(errorMessage, 'Error');
     return throwError(() => ({
       message: errorMessage,
       status: error.status,
@@ -56,6 +61,9 @@ export class ApiBaseService {
       params
     }).pipe(
       map(response => this.extractData<T>(response)),
+      tap(response => {
+        this.toastr.success('Data retrieved successfully', 'Success');
+      }),
       catchError(error => this.formatErrors(error))
     );
   }
@@ -65,6 +73,9 @@ export class ApiBaseService {
       headers: this.createHeaders()
     }).pipe(
       map(response => this.extractData<T>(response)),
+      tap(response => {
+        this.toastr.success('Operation completed successfully', 'Success');
+      }),
       catchError(error => this.formatErrors(error))
     );
   }
@@ -74,6 +85,9 @@ export class ApiBaseService {
       headers: this.createHeaders()
     }).pipe(
       map(response => this.extractData<T>(response)),
+      tap(response => {
+        this.toastr.success('Update completed successfully', 'Success');
+      }),
       catchError(error => this.formatErrors(error))
     );
   }
@@ -83,13 +97,23 @@ export class ApiBaseService {
       headers: this.createHeaders()
     }).pipe(
       map(response => this.extractData<T>(response)),
+      tap(response => {
+        this.toastr.success('Delete completed successfully', 'Success');
+      }),
       catchError(error => this.formatErrors(error))
     );
   }
 
-  private extractData<T>(response: ApiResponse<T>): T {
+  private extractData<T>(response: any): T {
+    // If the response is wrapped in an Ok result
+    if (response.result) {
+        return response.result as T;
+    }
+
+    // Original ApiResponse handling
     if (response.error) {
-      throw new Error(response.error.message);
+        this.toastr.error(response.error.message, 'Error');
+        throw new Error(response.error.message);
     }
     return response.data as T;
   }

@@ -1,13 +1,20 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
+import { ComicBookService } from '../../core/services/comic-book.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { trigger, transition, style, animate, state } from '@angular/animations';
+import { SceneCreateRequest } from '../../core/models/api.models';
 
 @Component({
   selector: 'app-comic-book-create',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink
+  ],
   templateUrl: './comic-book-create.component.html',
   styleUrls: ['./comic-book-create.component.css'],
   animations: [
@@ -29,30 +36,107 @@ import { trigger, transition, style, animate, state } from '@angular/animations'
     ])
   ]
 })
-export class ComicBookCreateComponent implements OnInit {
+export class ComicBookCreateComponent implements OnInit, OnDestroy {
   comicForm!: FormGroup;
   currentStep = 0;
   totalSteps = 4;
+  private destroy$ = new Subject<void>();
+  isProcessing = false;
 
-  constructor(private fb: FormBuilder) {
+  constructor(
+    private fb: FormBuilder,
+    private comicBookService: ComicBookService
+  ) {
     this.initForm();
   }
 
   ngOnInit() {
-    // Make sure form is initialized
     if (!this.comicForm) {
       this.initForm();
     }
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private initForm() {
     this.comicForm = this.fb.group({
       title: ['', Validators.required],
       description: ['', Validators.required],
-      scenes: this.fb.array([]),
+      scenes: this.fb.array([])
     });
-    // Initialize with first scene
     this.addScene();
+  }
+
+  async nextStep() {
+    if (this.isProcessing) return;
+
+    try {
+      this.isProcessing = true;
+
+      if (this.currentStep === 0) {
+        // Save initial comic book details
+        await this.saveComicBookDetails();
+      } else if (this.currentStep === 1) {
+        // Save first scene
+        await this.saveScene(0);
+      } else if (this.currentStep === 2) {
+        // Save additional scenes
+        for (let i = 1; i < this.scenes.length; i++) {
+          await this.saveScene(i);
+        }
+      }
+
+      if (this.currentStep < this.totalSteps - 1) {
+        this.currentStep++;
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      // Handle error (show user feedback)
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  private async saveComicBookDetails(): Promise<void> {
+    if (this.comicForm.get('title')?.valid && this.comicForm.get('description')?.valid) {
+      const request = {
+        title: this.comicForm.get('title')?.value,
+        description: this.comicForm.get('description')?.value
+      };
+
+      await this.comicBookService.createInitialComicBook(request).toPromise();
+    }
+  }
+
+  private async saveScene(index: number): Promise<void> {
+    const sceneGroup = this.getSceneFormGroup(index);
+    if (sceneGroup.valid) {
+      const comicBookId = await this.comicBookService.getCurrentComicBookId()
+        .pipe(takeUntil(this.destroy$))
+        .toPromise();
+
+      if (!comicBookId) {
+        throw new Error('No comic book ID available');
+      }
+
+      const request: SceneCreateRequest = {
+        comicBookId,
+        sceneOrder: index,
+        userDescription: sceneGroup.get('description')?.value,
+        imagePath: await this.handleImageUpload(sceneGroup.get('image')?.value)
+      };
+
+      await this.comicBookService.createScene(request).toPromise();
+    }
+  }
+
+  private async handleImageUpload(file: File): Promise<string> {
+    // TODO: Implement image upload logic
+    // This should upload the image to your server and return the path
+    return 'temp/path/to/image.jpg';
   }
 
   get scenes(): FormArray {
@@ -75,12 +159,6 @@ export class ComicBookCreateComponent implements OnInit {
   removeScene(index: number) {
     if (this.scenes.length > 1) {
       this.scenes.removeAt(index);
-    }
-  }
-
-  nextStep() {
-    if (this.currentStep < this.totalSteps - 1) {
-      this.currentStep++;
     }
   }
 
