@@ -15,7 +15,8 @@ import {
   ComicBookListResponse,
   SceneUpdateRequest,
   SceneUpdateResponse,
-  SceneGetResponse
+  SceneGetResponse,
+  SceneDeleteResponse
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -107,5 +108,9 @@ export class ComicBookService extends ApiBaseService {
   // Method to get scenes for a comic book
   getScenes(comicBookId: string): Observable<SceneGetResponse[]> {
     return this.get<SceneGetResponse[]>(`ComicBook/${comicBookId}/scenes`);
+  }
+
+  deleteScene(comicBookId: string, sceneId: string): Observable<SceneDeleteResponse> {
+    return this.delete<SceneDeleteResponse>(`ComicBook/${comicBookId}/scene/${sceneId}`);
   }
 }

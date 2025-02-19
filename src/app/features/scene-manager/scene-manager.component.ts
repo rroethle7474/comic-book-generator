@@ -47,8 +47,8 @@ export class SceneManagerComponent implements OnInit {
   private imageValidationConfig: ImageValidationConfig = {
     maxSizeMB: 5, // 5MB max file size
     allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
-    minWidth: 800,
-    minHeight: 600,
+    minWidth: 400,
+    minHeight: 200,
     maxWidth: 4096,
     maxHeight: 4096
   };
@@ -67,7 +67,6 @@ export class SceneManagerComponent implements OnInit {
   constructor(private comicBookService: ComicBookService,
     private toastr: ToastrService) {
     // Initialize with one empty scene
-    console.log("ENVIRONMENT", environment.staticAssetsUrl);
     this.addScene();
   }
 
@@ -92,17 +91,17 @@ export class SceneManagerComponent implements OnInit {
 
   addScene(): void {
     if (this.canAddScene) {
-      const newScene: IScene = {
-        sceneId: crypto.randomUUID(),
-        order: this.state.scenes.length,
-        description: '',
-        status: SceneStatus.Draft,
-        userDescription: '',
-        previewUrl: ''
-      };
-      this.state.scenes = [...this.state.scenes, newScene];
+        const newScene: IScene = {
+            sceneId: crypto.randomUUID(),
+            order: this.state.scenes.length,
+            description: '',
+            status: SceneStatus.Draft,
+            userDescription: '',
+            previewUrl: ''
+        };
+        this.state.scenes = [...this.state.scenes, newScene];
     }
-  }
+}
 
   async onDrop(event: CdkDragDrop<IScene[]>) {
     if (event.previousIndex !== event.currentIndex) {
