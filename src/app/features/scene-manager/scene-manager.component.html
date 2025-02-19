@@ -69,10 +69,10 @@
           <p class="text-sm text-gray-500">Drag & drop an image or click to browse</p>
         </div>
         <img
-          *ngIf="scene.previewUrl"
-          [src]="scene.previewUrl"
-          alt="Scene preview"
-          class="max-h-48 mx-auto rounded">
+        *ngIf="scene.previewUrl"
+        [src]="scene.imagePath ? environment.staticAssetsUrl + scene.imagePath : scene.previewUrl"
+        alt="Scene preview"
+        class="max-h-48 mx-auto rounded">
       </div>
 
       <!-- Scene Description -->

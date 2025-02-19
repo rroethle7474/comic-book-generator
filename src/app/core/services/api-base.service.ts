@@ -66,8 +66,13 @@ export class ApiBaseService {
   }
 
   protected post<T>(endpoint: string, body: any): Observable<T> {
+    // Check if body is FormData - if so, don't set Content-Type header
+    const headers = body instanceof FormData ?
+      new HttpHeaders() : // Let browser set Content-Type for FormData
+      this.createHeaders();
+
     return this.http.post<ApiResponse<T>>(`${this.baseUrl}/${endpoint}`, body, {
-      headers: this.createHeaders()
+      headers
     }).pipe(
       map(response => this.extractData<T>(response)),
       tap(response => {
@@ -75,7 +80,7 @@ export class ApiBaseService {
       }),
       catchError(error => this.formatErrors(error))
     );
-  }
+}
 
   protected put<T>(endpoint: string, body: any): Observable<T> {
     return this.http.put<ApiResponse<T>>(`${this.baseUrl}/${endpoint}`, body, {

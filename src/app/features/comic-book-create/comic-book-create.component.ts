@@ -126,70 +126,6 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     }
   }
 
-  async nextStep() {
-    if (this.isProcessing) return;
-
-    try {
-      this.isProcessing = true;
-
-      if (this.currentStep === 0) {
-        if (this.selectedComicBookId.value === 'new') {
-          // Check for duplicate title one more time before creating
-          if (this.checkDuplicateTitle(this.comicForm.get('title')?.value)) {
-            this.toastr.error('A comic book with this title already exists');
-            return;
-          }
-          // Save initial comic book details
-          await this.saveComicBookDetails();
-        } else {
-          // Get the current selected comic book
-          const selectedComic = this.incompleteComicBooks.find(
-            comic => comic.comicBookId === this.selectedComicBookId.value
-          );
-
-          // Get current form values
-          const currentTitle = this.comicForm.get('title')?.value?.trim();
-          const currentDescription = this.comicForm.get('description')?.value?.trim();
-
-          // Check if values have actually changed
-          if (selectedComic &&
-              (currentTitle !== selectedComic.title.trim() ||
-               currentDescription !== selectedComic.description.trim())) {
-            // Update existing comic book only if changes were made
-            const updateRequest = {
-              title: currentTitle,
-              description: currentDescription
-            };
-            await this.comicBookService.updateComicBook(
-              this.selectedComicBookId.value ?? '',
-              updateRequest
-            ).toPromise();
-          }
-        }
-      } else if (this.currentStep === 1) {
-        // Trigger scene validation and save
-        const sceneManager = this.sceneManagerComponent;
-        if (!sceneManager.validateAllScenes()) {
-          this.toastr.error('Please complete all required fields for at least one scene');
-          return;
-        }
-
-        // Save scenes
-        await this.saveScenes(sceneManager.state.scenes);
-      }
-
-      if (this.currentStep < this.totalSteps - 1) {
-        this.currentStep++;
-        this.updateDropdownState();
-      }
-    } catch (error) {
-      console.error('Error saving progress:', error);
-      // Handle error (show user feedback)
-    } finally {
-      this.isProcessing = false;
-    }
-  }
-
   isButtonDisabled(): boolean {
     if (this.currentStep === 0) {
       return !this.comicForm.get('title')?.value ||
@@ -262,23 +198,122 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
   }
 
   private async saveScenes(scenes: IScene[]): Promise<void> {
+    const comicBookId = this.selectedComicBookId.value;
+    if (!comicBookId) {
+      this.toastr.error('No comic book ID available');
+      throw new Error('No comic book ID available');
+    }
+
     // Save all scenes in order
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       const request: SceneCreateRequest = {
-        comicBookId: this.selectedComicBookId.value ?? '',
+        comicBookId: comicBookId,
         sceneOrder: i,
         userDescription: scene.description,
         imagePath: scene.imageFile ? await this.handleImageUpload(scene.imageFile) : scene.imagePath
       };
-      await this.comicBookService.createScene(request).toPromise();
+
+      try {
+        await this.comicBookService.createScene(request).toPromise();
+      } catch (error) {
+        this.toastr.error(`Error saving scene ${i + 1}`);
+        throw error;
+      }
+    }
+  }
+
+  async nextStep() {
+    if (this.isProcessing) return;
+
+    try {
+      this.isProcessing = true;
+
+      if (this.currentStep === 0) {
+        if (this.selectedComicBookId.value === 'new') {
+          // Check for duplicate title one more time before creating
+          if (this.checkDuplicateTitle(this.comicForm.get('title')?.value)) {
+            this.toastr.error('A comic book with this title already exists');
+            return;
+          }
+          // Save initial comic book details
+          await this.saveComicBookDetails();
+        } else {
+          // Update existing comic book
+          const selectedComic = this.incompleteComicBooks.find(
+            comic => comic.comicBookId === this.selectedComicBookId.value
+          );
+
+          const currentTitle = this.comicForm.get('title')?.value?.trim();
+          const currentDescription = this.comicForm.get('description')?.value?.trim();
+
+          if (selectedComic &&
+              (currentTitle !== selectedComic.title.trim() ||
+               currentDescription !== selectedComic.description.trim())) {
+            const updateRequest = {
+              title: currentTitle,
+              description: currentDescription
+            };
+            await this.comicBookService.updateComicBook(
+              this.selectedComicBookId.value ?? '',
+              updateRequest
+            ).toPromise();
+          }
+        }
+
+        // Set the comic book ID in the service for subsequent operations
+        this.comicBookService.currentComicBookId.next(this.selectedComicBookId.value);
+      }
+      else if (this.currentStep === 1) {
+        // Validate and save scenes
+        const sceneManager = this.sceneManagerComponent;
+
+        if (!sceneManager) {
+          this.toastr.error('Scene manager not initialized');
+          return;
+        }
+
+        if (!this.selectedComicBookId.value) {
+          this.toastr.error('No comic book selected');
+          return;
+        }
+
+        if (!sceneManager.validateAllScenes()) {
+          this.toastr.error('Please complete all required fields for at least one scene');
+          return;
+        }
+
+        // Save scenes
+        await this.saveScenes(sceneManager.state.scenes);
+      }
+
+      if (this.currentStep < this.totalSteps - 1) {
+        this.currentStep++;
+        this.updateDropdownState();
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      this.toastr.error('Error saving progress');
+    } finally {
+      this.isProcessing = false;
     }
   }
 
   private async handleImageUpload(file: File): Promise<string> {
-    // TODO: Implement image upload logic
-    // This should upload the image to your server and return the path
-    return 'temp/path/to/image.jpg';
+    try {
+      const imagePath = await this.comicBookService.uploadSceneImage(file)
+        .pipe(takeUntil(this.destroy$))
+        .toPromise();
+
+      if (!imagePath) {
+        throw new Error('Failed to upload image');
+      }
+
+      return imagePath;
+    } catch (error) {
+      this.toastr.error('Error uploading image');
+      throw error;
+    }
   }
 
   get scenes(): FormArray {

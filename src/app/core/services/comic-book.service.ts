@@ -23,7 +23,7 @@ import { ApiResponse } from '../models/api.models';
   providedIn: 'root'
 })
 export class ComicBookService extends ApiBaseService {
-  private currentComicBookId = new BehaviorSubject<string | null>(null);
+  currentComicBookId = new BehaviorSubject<string | null>(null);
   private currentScenes = new BehaviorSubject<Map<string, SceneCreateResponse>>(new Map());
 
   constructor(http: HttpClient, toastr: ToastrService) {
@@ -77,7 +77,6 @@ export class ComicBookService extends ApiBaseService {
       );
   }
 
-
   // Scene Management
   updateSceneOrder(comicBookId: string, scenes: { sceneId: string; order: number }[]): Observable<void> {
     return this.put<void>(`ComicBook/${comicBookId}/scenes/reorder`, { scenes });
@@ -85,7 +84,7 @@ export class ComicBookService extends ApiBaseService {
 
   uploadSceneImage(file: File): Observable<string> {
     const formData = this.createFormData(file);
-    return this.post<{ imagePath: string }>('upload/scene-image', formData)
+    return this.post<{ imagePath: string }>('ComicBook/upload/scene-image', formData)
       .pipe(map(response => response.imagePath));
   }
 

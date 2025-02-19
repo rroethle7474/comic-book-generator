@@ -12,6 +12,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { ComicBookService } from '../../core/services/comic-book.service';
 import { ToastrService } from 'ngx-toastr';
 import { SceneCreateRequest } from '../../core/models/api.models';
+import { environment } from '../../../environment/environment';
 
 interface ImageValidationConfig {
   maxSizeMB: number;
@@ -61,9 +62,12 @@ export class SceneManagerComponent implements OnInit {
 
   config = DEFAULT_SCENE_MANAGER_CONFIG;
 
+  environment = environment;
+
   constructor(private comicBookService: ComicBookService,
     private toastr: ToastrService) {
     // Initialize with one empty scene
+    console.log("ENVIRONMENT", environment.staticAssetsUrl);
     this.addScene();
   }
 
@@ -150,16 +154,18 @@ export class SceneManagerComponent implements OnInit {
   }
 
   async handleFileSelection(file: File, scene: IScene) {
-    if (!this.validateFile(file)) return;
+    const isValid = await this.validateFile(file);
+    if (!isValid) return;
 
     // Store the file for later upload
     this.pendingImageUploads.set(scene.sceneId, file);
 
-    // Create preview
+    // Create preview and update scene state
     const reader = new FileReader();
     reader.onload = (e: ProgressEvent<FileReader>) => {
       scene.previewUrl = e.target?.result as string;
       scene.status = SceneStatus.Draft;
+      scene.imageFile = file;  // Add this line to track the file in the scene
     };
     reader.readAsDataURL(file);
   }
@@ -220,11 +226,17 @@ export class SceneManagerComponent implements OnInit {
   validateScene(scene: IScene): boolean {
     const errors: string[] = [];
 
-    if (!scene.imageFile && !scene.imagePath) {
+    // Check for either a pending upload, existing image, or preview
+    const hasImage = this.pendingImageUploads.has(scene.sceneId) ||
+                    scene.imagePath ||
+                    scene.imageFile ||
+                    scene.previewUrl;
+
+    if (!hasImage) {
       errors.push('An image is required');
     }
 
-    if (!scene.description.trim()) {
+    if (!scene.description?.trim()) {
       errors.push('Description is required');
     }
 
@@ -269,7 +281,7 @@ export class SceneManagerComponent implements OnInit {
       const scenes = await this.comicBookService.getScenes(this.comicBookId!)
         .pipe(takeUntil(this.destroy$))
         .toPromise();
-
+      console
       if (scenes && scenes.length > 0) {
         this.state.scenes = scenes.map(scene => ({
           sceneId: scene.sceneId,
@@ -277,7 +289,8 @@ export class SceneManagerComponent implements OnInit {
           description: scene.userDescription || '',
           imagePath: scene.imagePath || undefined,
           status: SceneStatus.Complete,
-          userDescription: scene.userDescription || ''
+          userDescription: scene.userDescription || '',
+          previewUrl: scene.imagePath ? environment.staticAssetsUrl + scene.imagePath : ''
         }));
       }
     } catch (error) {
