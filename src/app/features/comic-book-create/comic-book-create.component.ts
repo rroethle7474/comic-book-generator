@@ -4,7 +4,7 @@ import { ComicBookService } from '../../core/services/comic-book.service';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { trigger, transition, style, animate, state } from '@angular/animations';
-import { SceneCreateRequest, ComicBookListResponse } from '../../core/models/api.models';
+import { SceneCreateRequest, ComicBookListResponse, SceneUpdateRequest } from '../../core/models/api.models';
 import { ToastrService } from 'ngx-toastr';
 import { SceneManagerComponent } from '../scene-manager/scene-manager.component';
 import { IScene } from '../../core/models/scene-management.models';
@@ -258,6 +258,19 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
                         this.selectedComicBookId.value ?? '',
                         updateRequest
                     ).toPromise();
+
+                    // Update the comic in the incompleteComicBooks array
+                    this.incompleteComicBooks = this.incompleteComicBooks.map(comic => {
+                        if (comic.comicBookId === this.selectedComicBookId.value) {
+                            return {
+                                ...comic,
+                                title: currentTitle,
+                                description: currentDescription,
+                                updatedAt: new Date()
+                            };
+                        }
+                        return comic;
+                    });
                 }
             }
 
@@ -282,69 +295,71 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
                 return;
             }
 
-            // Get existing scenes
-            const existingScenes = await this.comicBookService.getScenes(this.selectedComicBookId.value)
-                .pipe(takeUntil(this.destroy$))
-                .toPromise();
+            try {
+                // Get existing scenes first
+                const existingScenes = await this.comicBookService.getScenes(this.selectedComicBookId.value)
+                    .pipe(takeUntil(this.destroy$))
+                    .toPromise();
 
-            // Create a map of existing scenes by sceneId for easier lookup
-            const existingSceneMap = new Map(existingScenes?.map(scene => [scene.sceneId, scene]));
+                // Create a map of existing scenes by sceneId for easier lookup
+                const existingSceneMap = new Map(existingScenes?.map(scene => [scene.sceneId, scene]));
 
-            // Track which existing scenes are still present
-            const processedSceneIds = new Set<string>();
+                // Track which scenes are still present
+                const processedSceneIds = new Set<string>();
 
-            // Process each current scene
-            for (const scene of sceneManager.state.scenes) {
-                if (scene.sceneId && existingSceneMap.has(scene.sceneId)) {
-                    // Scene exists - check if it needs updating
-                    const existingScene = existingSceneMap.get(scene.sceneId)!;
-                    processedSceneIds.add(scene.sceneId);
-
-                    // Check if there's a pending image upload for this scene
-                    let imagePath = scene.imagePath;
-                    if (scene.imageFile) {
-                        imagePath = await this.handleImageUpload(scene.imageFile);
-                    }
-
-                    if (existingScene.userDescription !== scene.description ||
-                        existingScene.imagePath !== imagePath ||
-                        existingScene.sceneOrder !== scene.order) {
-                        await this.comicBookService.updateScene(scene.sceneId, {
-                            userDescription: scene.description,
-                            imagePath: imagePath
-                        }).toPromise();
-                    }
-                } else {
+                // Process each scene
+                for (const scene of sceneManager.state.scenes) {
                     // Handle image upload first if there's a pending upload
                     let imagePath = scene.imagePath;
                     if (scene.imageFile) {
                         imagePath = await this.handleImageUpload(scene.imageFile);
                     }
 
-                    // Create new scene with the uploaded image path
-                    const createResponse = await this.comicBookService.createScene({
-                        comicBookId: this.selectedComicBookId.value,
-                        sceneOrder: scene.order,
-                        userDescription: scene.description,
-                        imagePath: imagePath
-                    }).toPromise();
+                    if (scene.sceneId && existingSceneMap.has(scene.sceneId)) {
+                        // Scene exists - check if it needs updating
+                        const existingScene = existingSceneMap.get(scene.sceneId)!;
+                        processedSceneIds.add(scene.sceneId);
 
-                    if (createResponse) {
-                        processedSceneIds.add(createResponse.sceneId);
+                        // Update if any properties have changed
+                        if (existingScene.userDescription !== scene.description ||
+                            existingScene.imagePath !== imagePath ||
+                            existingScene.sceneOrder !== scene.order) {
+                            let sceneUpdateRequest: SceneUpdateRequest = {
+                              userDescription: scene.description,
+                              imagePath: imagePath,
+                              sceneOrder: scene.order
+                            };
+                            await this.comicBookService.updateScene(this.selectedComicBookId.value, scene.sceneId, sceneUpdateRequest).toPromise();
+                        }
+                    } else {
+                        // Create new scene
+                        const createResponse = await this.comicBookService.createScene({
+                            comicBookId: this.selectedComicBookId.value,
+                            sceneOrder: scene.order,
+                            userDescription: scene.description,
+                            imagePath: imagePath
+                        }).toPromise();
+
+                        if (createResponse) {
+                            processedSceneIds.add(createResponse.sceneId);
+                        }
                     }
                 }
-            }
 
-            // Delete scenes that no longer exist
-            if (existingScenes) {
-                for (const existingScene of existingScenes) {
-                    if (!processedSceneIds.has(existingScene.sceneId)) {
-                        await this.comicBookService.deleteScene(
-                            this.selectedComicBookId.value,
-                            existingScene.sceneId
-                        ).toPromise();
+                // Delete scenes that no longer exist
+                if (existingScenes) {
+                    for (const existingScene of existingScenes) {
+                        if (!processedSceneIds.has(existingScene.sceneId)) {
+                            await this.comicBookService.deleteScene(
+                                this.selectedComicBookId.value,
+                                existingScene.sceneId
+                            ).toPromise();
+                        }
                     }
                 }
+            } catch (error) {
+                this.toastr.error('Error saving scenes');
+                throw error;
             }
         }
 

@@ -105,31 +105,18 @@ export class SceneManagerComponent implements OnInit {
 
   async onDrop(event: CdkDragDrop<IScene[]>) {
     if (event.previousIndex !== event.currentIndex) {
-      moveItemInArray(this.state.scenes, event.previousIndex, event.currentIndex);
+        moveItemInArray(this.state.scenes, event.previousIndex, event.currentIndex);
 
-      // Update scene orders
-      this.state.scenes = this.state.scenes.map((scene, index) => ({
-        ...scene,
-        order: index
-      }));
+        // Update scene orders locally
+        this.state.scenes = this.state.scenes.map((scene, index) => ({
+            ...scene,
+            order: index
+        }));
 
-      if (this.comicBookId) {
-        try {
-          await this.comicBookService.updateSceneOrder(
-            this.comicBookId,
-            this.state.scenes.map(scene => ({
-              sceneId: scene.sceneId,
-              order: scene.order
-            }))
-          ).toPromise();
-        } catch (error) {
-          this.toastr.error('Error updating scene order');
-        }
-      }
-
-      this.scenesUpdated.emit(this.state.scenes);
+        // Emit updated scenes to parent
+        this.scenesUpdated.emit(this.state.scenes);
     }
-  }
+}
 
   removeScene(sceneId: string): void {
     if (this.state.scenes.length > 1) {

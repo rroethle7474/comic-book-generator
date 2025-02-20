@@ -78,11 +78,6 @@ export class ComicBookService extends ApiBaseService {
       );
   }
 
-  // Scene Management
-  updateSceneOrder(comicBookId: string, scenes: { sceneId: string; order: number }[]): Observable<void> {
-    return this.put<void>(`ComicBook/${comicBookId}/scenes/reorder`, { scenes });
-  }
-
   uploadSceneImage(file: File): Observable<string> {
     const formData = this.createFormData(file);
     return this.post<{ imagePath: string }>('ComicBook/upload/scene-image', formData)
@@ -101,8 +96,8 @@ export class ComicBookService extends ApiBaseService {
   }
 
   // Method to update a single scene
-  updateScene(sceneId: string, request: SceneUpdateRequest): Observable<SceneUpdateResponse> {
-    return this.put<SceneUpdateResponse>(`ComicBook/scene/${sceneId}`, request);
+  updateScene(comicBookId: string, sceneId: string, request: SceneUpdateRequest): Observable<SceneUpdateResponse> {
+    return this.put<SceneUpdateResponse>(`ComicBook/${comicBookId}/scene/${sceneId}`, request);
   }
 
   // Method to get scenes for a comic book

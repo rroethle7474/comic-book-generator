@@ -66,6 +66,7 @@ export interface SceneCreateRequest {
 export interface SceneUpdateRequest {
     imagePath?: string;
     userDescription?: string;
+    sceneOrder?: number;
     aiGeneratedStory?: string;
 }
 
@@ -125,4 +126,36 @@ export interface SynthesizeSpeechRequest {
 
 export interface SynthesizeSpeechResponse {
     audioUrl: string;
+}
+
+export interface CreateVoiceModelRequest {
+  voiceModelName: string;
+    voiceModelDescription: string;
+  }
+
+  export interface CreateVoiceModelResponse {
+    voiceModelId: string;
+    voiceModelName: string;
+    voiceModelDescription: string;
+  }
+
+export interface VoiceModelListResponse {
+  voiceModelId: string;
+  voiceModelName: string;
+  voiceModelDescription: string;
+  isCompleted: boolean;
+  trainingDate: Date;
+}
+
+export interface VoiceModelUpdateRequest {
+  voiceModelName?: string;
+  voiceModelDescription?: string;
+  isCompleted?: boolean;
+}
+
+export interface VoiceModelUpdateResponse {
+  voiceModelId: string;
+  voiceModelName: string;
+  voiceModelDescription: string;
+  isCompleted: boolean;
 }
