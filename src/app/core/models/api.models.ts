@@ -159,3 +159,9 @@ export interface VoiceModelUpdateResponse {
   voiceModelDescription: string;
   isCompleted: boolean;
 }
+
+export interface AudioSnippetResponse {
+  audioSnippetId: string;
+  audioFilePath: string;
+  addedAt: Date;
+}
