@@ -112,10 +112,14 @@ export interface StartRecordingResponse {
     message: string;
 }
 
+export interface AudioSnippetUploadRequest {
+    audioFile: File;
+    stepIndex: number;
+}
+
 export interface AudioSnippetUploadResponse {
     message: string;
     audioSnippetId: string;
-    audioFilePath?: string;
 }
 
 export interface TrainModelResponse {

@@ -11,7 +11,8 @@ import {
   VoiceModelUpdateResponse,
   AudioSnippetUploadResponse,
   TrainModelResponse,
-  AudioSnippetResponse
+  AudioSnippetResponse,
+  ApiResponse
 } from '../models/api.models';
 
 export interface RecordingState {
@@ -89,13 +90,26 @@ export class VoiceMimickingService extends ApiBaseService {
   }
 
   // New methods for audio recording
-  uploadAudioSnippet(voiceModelId: string, audioBlob: Blob): Observable<AudioSnippetUploadResponse> {
+  uploadAudioSnippet(voiceModelId: string, audioBlob: Blob, stepId: string): Observable<AudioSnippetUploadResponse> {
     const formData = new FormData();
     formData.append('audioFile', audioBlob, 'recording.wav');
+    formData.append('stepId', stepId);
 
-    return this.post<AudioSnippetUploadResponse>(
+    return this.post<ApiResponse<AudioSnippetUploadResponse>>(
       `voice-mimic/voice-model/${voiceModelId}/audio-snippet`,
       formData
+    ).pipe(
+      tap(response => console.log('Upload Response in Service:', response)),
+      map(response => {
+        if (!response || response.error) {
+          throw new Error(response?.error?.message || 'Invalid response from server');
+        }
+        // Ensure we're returning the data property
+        if (!response.data) {
+          throw new Error('No data received from server');
+        }
+        return response.data;
+      })
     );
   }
 

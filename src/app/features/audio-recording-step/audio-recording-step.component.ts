@@ -7,6 +7,17 @@ import { ToastrService } from 'ngx-toastr';
 import { forkJoin } from 'rxjs';
 import { environment } from '../../../environment/environment';
 
+interface Step {
+  stepId: string;
+  stepNumber: number;
+  transcriptText: string;
+  recording?: {
+    audioSnippetId: string;
+    audioFilePath: string;
+    recordedAt: Date;
+  };
+}
+
 @Component({
   selector: 'app-audio-recording-step',
   standalone: true,
@@ -33,6 +44,9 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
   // Replace hardcoded transcripts with empty array
   transcripts: string[] = [];
+
+  // Add new property to store steps
+  steps: Step[] = [];
 
   constructor(
     private voiceMimickingService: VoiceMimickingService,
@@ -91,6 +105,7 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
       console.log("Loaded Progress:", progress);
       
       if (progress) {
+        this.steps = progress.steps;
         this.transcripts = progress.steps.map(step => step.transcriptText);
 
         // Create a new recordings object
@@ -145,28 +160,53 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
       };
 
       this.mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(blob);
+        try {
+          const blob = new Blob(chunks, { type: 'audio/wav' });
+          console.log('Created audio blob:', blob);
 
-        if (this.selectedModelId) {
-          try {
-            // Get the response from uploadAudioSnippet
-            const response = await this.voiceMimickingService.uploadAudioSnippet(this.selectedModelId, blob).toPromise();
-            
-            // Create the recording object with both the URL and the snippet ID
-            const newRecording = {
-              audioFilePath: audioUrl,
-              audioSnippetId: response?.audioSnippetId || '' // Make sure this matches your API response
-            };
+          if (!this.selectedModelId) {
+            throw new Error('No voice model selected');
+          }
 
-            // Save the recording with both pieces of information
-            this.voiceMimickingService.saveRecording(this.currentIndex, newRecording);
-            this.recordings[this.currentIndex] = newRecording;
-            
-            this.toastr.success('Recording saved successfully');
-          } catch (error) {
-            console.error('Error uploading recording:', error);
-            this.toastr.error('Failed to save recording');
+          // Get the current step's ID
+          const currentStep = this.steps[this.currentIndex];
+          if (!currentStep?.stepId) {
+            throw new Error('No step ID found for current index');
+          }
+
+          // Upload the recording with the stepId
+          const response = await this.voiceMimickingService.uploadAudioSnippet(
+            this.selectedModelId, 
+            blob,
+            currentStep.stepId
+          ).toPromise();
+          
+          console.log('Upload Response in Component:', response);
+
+          if (!response?.audioSnippetId) {
+            throw new Error('Invalid response from server: missing audioSnippetId');
+          }
+
+          // Create the recording object with the file path from the server response
+          const newRecording = {
+            audioFilePath: `/uploads/audio/${response.audioSnippetId}_recording.wav`,
+            audioSnippetId: response.audioSnippetId
+          };
+
+          console.log('New Recording Object:', newRecording);
+
+          // Save the recording with both pieces of information
+          this.voiceMimickingService.saveRecording(this.currentIndex, newRecording);
+          this.recordings[this.currentIndex] = newRecording;
+          
+          this.toastr.success('Recording saved successfully');
+        } catch (error) {
+          console.error('Error in onstop handler:', error);
+          this.toastr.error(error instanceof Error ? error.message : 'Failed to save recording');
+        } finally {
+          // Clean up the media stream
+          if (this.mediaRecorder?.stream) {
+            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
           }
         }
       };
@@ -181,10 +221,15 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   }
 
   private stopRecording() {
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      this.isRecording = false;
+    try {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        console.log('Stopping recording...');
+        this.mediaRecorder.stop();
+        this.isRecording = false;
+      }
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      this.toastr.error('Error stopping recording');
     }
   }
 
@@ -200,7 +245,14 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
       
       const audioPath = recording.audioFilePath;
       console.log("AUDIO PATH", audioPath);
-      this.audioElement.src = `${environment.staticAssetsUrl}/${audioPath}`;
+
+      // Check if this is a blob URL (new recording) or a file path (existing recording)
+      if (audioPath.startsWith('blob:')) {
+        this.audioElement.src = audioPath;
+      } else {
+        this.audioElement.src = `${environment.staticAssetsUrl}/${audioPath}`;
+      }
+
       this.audioElement.play();
       this.isPlaying = true;
     }
