@@ -17,7 +17,10 @@ import {
 export interface RecordingState {
   recordingIndex: number;
   recordings: {
-    [key: number]: string | null; // Maps index to audio URL
+    [key: number]: {
+      audioFilePath: string;
+      audioSnippetId: string;
+    } | null;
   };
 }
 
@@ -51,14 +54,15 @@ export class VoiceMimickingService extends ApiBaseService {
     });
   }
 
-  saveRecording(index: number, audioUrl: string) {
+  saveRecording(index: number, recording: { audioFilePath: string; audioSnippetId: string; } | null) {
     const currentState = this.recordingState.value;
+    const newRecordings = {
+      ...currentState.recordings,
+      [index]: recording
+    };
     this.recordingState.next({
       ...currentState,
-      recordings: {
-        ...currentState.recordings,
-        [index]: audioUrl
-      }
+      recordings: newRecordings
     });
   }
 
@@ -100,6 +104,7 @@ export class VoiceMimickingService extends ApiBaseService {
   }
 
   deleteAudioSnippet(audioSnippetId: string): Observable<boolean> {
+    console.log("DELETE AUDIO SNIPPET", audioSnippetId);
     return this.delete<boolean>(`voice-mimic/audio-snippet/${audioSnippetId}`);
   }
 
@@ -112,5 +117,28 @@ export class VoiceMimickingService extends ApiBaseService {
       recordingIndex: 0,
       recordings: {}
     });
+  }
+
+  getVoiceModelProgress(voiceModelId: string): Observable<{
+    voiceModelId: string;
+    totalSteps: number;
+    completedSteps: number;
+    steps: {
+      stepId: string;
+      stepNumber: number;
+      transcriptText: string;
+      recording?: {
+        audioSnippetId: string;
+        audioFilePath: string;
+        recordedAt: Date;
+      };
+    }[];
+  }> {
+    return this.get(`voice-mimic/voice-model/${voiceModelId}/progress`);
+  }
+
+  // Add new method to update the entire recording state
+  updateRecordingState(state: RecordingState) {
+    this.recordingState.next(state);
   }
 }

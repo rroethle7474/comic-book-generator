@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { VoiceModelSelectorComponent } from '../../shared/components/voice-model-selector/voice-model-selector.component';
 import { VoiceMimickingService } from '../../core/services/voice-mimicking.service';
 import { ToastrService } from 'ngx-toastr';
+import { forkJoin } from 'rxjs';
+import { environment } from '../../../environment/environment';
 
 @Component({
   selector: 'app-audio-recording-step',
@@ -20,18 +22,17 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   isTraining = false;
   mediaRecorder: MediaRecorder | null = null;
   audioElement: HTMLAudioElement | null = null;
-  recordings: { [key: number]: string | null } = {};
+  recordings: { 
+    [key: number]: {
+      audioFilePath: string;
+      audioSnippetId: string;
+    } | null 
+  } = {};
   readonly Math = Math;
   protected readonly Object = Object;
 
-  // Sample transcripts (you can replace these with your actual texts)
-  transcripts = [
-    "Hello! I am testing this voice recording today. Sometimes, I wonder how quickly technology advances. It sure is amazing? I love exploring new AI tools, especially ones that can mimic human speech. Speaking clearly and naturally should help gather accurate training data. Lets see how it turns out!",
-    "I can’t believe how excited I feel right now! The sun is setting, painting the sky with brilliant shades of pink and orange. Yet, there’s a bittersweet edge in the air—maybe it’s the chill of approaching autumn. When life moves this quickly, pausing to take everything in can be overwhelming. Do you ever feel that way, too?",
-    "On September 14th, 2025, I arrived in New York City at exactly 7:45 p.m. My suitcase weighed forty-two pounds, stuffed with books and souvenirs. During my stay, I discovered local bakeries on 5th Avenue that sold twelve kinds of pastries. Surprisingly, each slice of cake cost only three dollars and fifty cents!",
-    "Please read these instructions carefully, then proceed with caution. First, open the large green box labeled ‘Fragile.’ Next, remove the small envelope from inside and place it on the table. Do not bend or fold the papers under any circumstance. Finally, confirm the contents match the checklist and seal the box securely. Your cooperation is greatly appreciated!",
-    "Under the moon’s silver glow, a gentle breeze carries whispers across the fields. Shadows dance among the tall grass, swaying to a silent lullaby. Crickets chirp, and distant owls respond with soft, haunting calls. In these hush moments of nighttime, the world feels both vast and quietly intimate."
-  ];
+  // Replace hardcoded transcripts with empty array
+  transcripts: string[] = [];
 
   constructor(
     private voiceMimickingService: VoiceMimickingService,
@@ -40,7 +41,9 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // Check if we have a selected model ID
+    // Reset current index at component initialization
+    this.currentIndex = 0;
+    
     this.voiceMimickingService.getCurrentVoiceModelId().subscribe(
       id => {
         if (!id) {
@@ -48,7 +51,10 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
           return;
         }
         this.selectedModelId = id;
-        this.loadExistingRecordings();
+        // Clear any existing recordings state before loading new model
+        this.recordings = {};
+        this.voiceMimickingService.clearRecordingState();
+        this.loadStepsAndRecordings();
       }
     );
 
@@ -58,10 +64,14 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
       this.isPlaying = false;
     };
 
-    // Load any existing recording state
+    // Subscribe to recording state changes
     this.voiceMimickingService.getRecordingState().subscribe(state => {
-      this.currentIndex = state.recordingIndex;
-      this.recordings = state.recordings;
+      console.log("Recording State Updated:", state);
+      // Only update if we don't already have recordings loaded
+      if (Object.keys(this.recordings).length === 0) {
+        this.currentIndex = state.recordingIndex;
+        this.recordings = state.recordings;
+      }
     });
   }
 
@@ -73,21 +83,42 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     }
   }
 
-  async loadExistingRecordings() {
+  async loadStepsAndRecordings() {
     if (!this.selectedModelId) return;
 
     try {
-      console.log("Loading existing recordings", this.selectedModelId);
-      const snippets = await this.voiceMimickingService.getAudioSnippets(this.selectedModelId).toPromise();
-      console.log("Snippets", snippets);
-      if (snippets && snippets.length > 0) {
-        // Map the snippets to our recordings object
-        snippets.forEach((snippet, index) => {
-          this.recordings[index] = snippet.audioFilePath;
+      const progress = await this.voiceMimickingService.getVoiceModelProgress(this.selectedModelId).toPromise();
+      console.log("Loaded Progress:", progress);
+      
+      if (progress) {
+        this.transcripts = progress.steps.map(step => step.transcriptText);
+
+        // Create a new recordings object
+        const newRecordings: typeof this.recordings = {};
+
+        // Map recordings to their correct steps
+        progress.steps.forEach((step, index) => {
+          if (step.recording) {
+            newRecordings[index] = {
+              audioFilePath: step.recording.audioFilePath,
+              audioSnippetId: step.recording.audioSnippetId
+            };
+          }
         });
+
+        // Update recordings and save to service
+        this.currentIndex = 0;
+        this.recordings = newRecordings;
+        this.voiceMimickingService.updateRecordingState({
+          recordingIndex: 0,
+          recordings: newRecordings
+        });
+
+        console.log("Updated Recordings State:", this.recordings);
       }
     } catch (error) {
-      console.error('Error loading existing recordings:', error);
+      console.error('Error loading steps and recordings:', error);
+      this.toastr.error('Failed to load voice model data');
     }
   }
 
@@ -119,9 +150,19 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
         if (this.selectedModelId) {
           try {
-            await this.voiceMimickingService.uploadAudioSnippet(this.selectedModelId, blob).toPromise();
-            this.voiceMimickingService.saveRecording(this.currentIndex, audioUrl);
-            this.recordings[this.currentIndex] = audioUrl;
+            // Get the response from uploadAudioSnippet
+            const response = await this.voiceMimickingService.uploadAudioSnippet(this.selectedModelId, blob).toPromise();
+            
+            // Create the recording object with both the URL and the snippet ID
+            const newRecording = {
+              audioFilePath: audioUrl,
+              audioSnippetId: response?.audioSnippetId || '' // Make sure this matches your API response
+            };
+
+            // Save the recording with both pieces of information
+            this.voiceMimickingService.saveRecording(this.currentIndex, newRecording);
+            this.recordings[this.currentIndex] = newRecording;
+            
             this.toastr.success('Recording saved successfully');
           } catch (error) {
             console.error('Error uploading recording:', error);
@@ -154,7 +195,12 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
       this.audioElement.pause();
       this.isPlaying = false;
     } else {
-      this.audioElement.src = this.recordings[this.currentIndex] || '';
+      const recording = this.recordings[this.currentIndex];
+      if (!recording) return;
+      
+      const audioPath = recording.audioFilePath;
+      console.log("AUDIO PATH", audioPath);
+      this.audioElement.src = `${environment.staticAssetsUrl}/${audioPath}`;
       this.audioElement.play();
       this.isPlaying = true;
     }
@@ -164,18 +210,22 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     if (!this.selectedModelId || !this.recordings[this.currentIndex]) return;
 
     try {
-      // First, stop any ongoing playback
       if (this.isPlaying) {
         this.audioElement?.pause();
         this.isPlaying = false;
       }
 
-      // Delete the recording from the backend
-      await this.voiceMimickingService.deleteAudioSnippet(this.recordings[this.currentIndex] || '').toPromise();
+      const recording = this.recordings[this.currentIndex];
+      if (!recording) return;
+
+      console.log("Deleting recording:", recording);
+
+      // Delete the recording from the backend using the audioSnippetId
+      await this.voiceMimickingService.deleteAudioSnippet(recording.audioSnippetId).toPromise();
 
       // Update local state
       delete this.recordings[this.currentIndex];
-      this.voiceMimickingService.saveRecording(this.currentIndex, '');
+      this.voiceMimickingService.saveRecording(this.currentIndex, null);
 
       this.toastr.success('Recording deleted successfully');
     } catch (error) {
@@ -188,7 +238,10 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     if (this.currentIndex > 0) {
       this.stopPlayback();
       this.currentIndex--;
-      this.voiceMimickingService.setRecordingIndex(this.currentIndex);
+      this.voiceMimickingService.updateRecordingState({
+        recordingIndex: this.currentIndex,
+        recordings: this.recordings
+      });
     }
   }
 
@@ -196,7 +249,10 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     if (this.currentIndex < this.transcripts.length - 1) {
       this.stopPlayback();
       this.currentIndex++;
-      this.voiceMimickingService.setRecordingIndex(this.currentIndex);
+      this.voiceMimickingService.updateRecordingState({
+        recordingIndex: this.currentIndex,
+        recordings: this.recordings
+      });
     }
   }
 
@@ -208,6 +264,8 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   }
 
   navigateBack() {
+    // Clear the recording state before navigating back
+    this.voiceMimickingService.clearRecordingState();
     this.router.navigate(['/create-voice-model']);
   }
 

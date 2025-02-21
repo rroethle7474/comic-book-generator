@@ -114,6 +114,8 @@ export interface StartRecordingResponse {
 
 export interface AudioSnippetUploadResponse {
     message: string;
+    audioSnippetId: string;
+    audioFilePath?: string;
 }
 
 export interface TrainModelResponse {
