@@ -95,20 +95,16 @@ export class VoiceMimickingService extends ApiBaseService {
     formData.append('audioFile', audioBlob, 'recording.wav');
     formData.append('stepId', stepId);
 
-    return this.post<ApiResponse<AudioSnippetUploadResponse>>(
+    return this.post<AudioSnippetUploadResponse>(
       `voice-mimic/voice-model/${voiceModelId}/audio-snippet`,
       formData
     ).pipe(
       tap(response => console.log('Upload Response in Service:', response)),
       map(response => {
-        if (!response || response.error) {
-          throw new Error(response?.error?.message || 'Invalid response from server');
+        if (!response) {
+          throw new Error('Invalid response from server');
         }
-        // Ensure we're returning the data property
-        if (!response.data) {
-          throw new Error('No data received from server');
-        }
-        return response.data;
+        return response;
       })
     );
   }

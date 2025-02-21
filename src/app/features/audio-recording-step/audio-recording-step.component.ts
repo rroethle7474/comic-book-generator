@@ -121,11 +121,11 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
           }
         });
 
-        // Update recordings and save to service
-        this.currentIndex = 0;
+        // Update recordings but maintain current index
+        const currentIndex = this.currentIndex;
         this.recordings = newRecordings;
         this.voiceMimickingService.updateRecordingState({
-          recordingIndex: 0,
+          recordingIndex: currentIndex,
           recordings: newRecordings
         });
 
@@ -195,9 +195,12 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
           console.log('New Recording Object:', newRecording);
 
-          // Save the recording with both pieces of information
-          this.voiceMimickingService.saveRecording(this.currentIndex, newRecording);
+          // Update both local and service state
           this.recordings[this.currentIndex] = newRecording;
+          this.voiceMimickingService.saveRecording(this.currentIndex, newRecording);
+
+          // Refresh the steps data to get the latest state
+          await this.loadStepsAndRecordings();
           
           this.toastr.success('Recording saved successfully');
         } catch (error) {

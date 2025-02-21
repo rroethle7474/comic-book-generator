@@ -47,31 +47,33 @@
 
     <!-- Recording Controls -->
     <div class="space-y-6">
-      <!-- Main Recording Button -->
+      <!-- Main Recording Button - Only show if no recording exists for current step -->
       <div class="flex justify-center">
-        <button
-          (click)="toggleRecording()"
-          [disabled]="isPlaying"
-          [ngClass]="{'bg-red-600 hover:bg-red-700': isRecording, 'bg-blue-600 hover:bg-blue-700': !isRecording}"
-          class="px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div class="flex items-center gap-2">
-            @if (!isRecording) {
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            } @else {
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-            }
-            {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
-          </div>
-        </button>
+        @if (!recordings[currentIndex]) {
+          <button
+            (click)="toggleRecording()"
+            [disabled]="isPlaying"
+            [ngClass]="{'bg-red-600 hover:bg-red-700': isRecording, 'bg-blue-600 hover:bg-blue-700': !isRecording}"
+            class="px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div class="flex items-center gap-2">
+              @if (!isRecording) {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                </svg>
+              }
+              {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
+            </div>
+          </button>
+        }
       </div>
 
-      <!-- Playback Controls -->
+      <!-- Playback Controls - Only show if recording exists -->
       @if (recordings[currentIndex]) {
         <div class="flex justify-center gap-4">
           <button
