@@ -7,7 +7,8 @@ import { trigger, transition, style, animate, state } from '@angular/animations'
 import { SceneCreateRequest, ComicBookListResponse, SceneUpdateRequest } from '../../core/models/api.models';
 import { ToastrService } from 'ngx-toastr';
 import { SceneManagerComponent } from '../scene-manager/scene-manager.component';
-import { IScene } from '../../core/models/scene-management.models';
+import { IScene, SceneStatus } from '../../core/models/scene-management.models';
+import { environment } from '../../../environment/environment';
 
 
 export interface Step {
@@ -63,6 +64,8 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
   scenesValid = false;
   @ViewChild(SceneManagerComponent)
   sceneManagerComponent!: SceneManagerComponent;
+  staticAssetsUrl = environment.staticAssetsUrl;
+  sceneCount = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -98,6 +101,7 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     this.comicForm = this.fb.group({
       title: ['', Validators.required],
       description: ['', Validators.required],
+      additionalDetails: [''],
       scenes: this.fb.array([])
     });
     this.addScene();
@@ -198,28 +202,76 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
   }
 
   private async saveScenes(scenes: IScene[]): Promise<void> {
-    const comicBookId = this.selectedComicBookId.value;
-    if (!comicBookId) {
-      this.toastr.error('No comic book ID available');
-      throw new Error('No comic book ID available');
-    }
+    try {
+        // Get existing scenes first
+        console.log("ITS TIME");
+        const existingScenes = await this.comicBookService.getScenes(this.selectedComicBookId.value!)
+            .pipe(takeUntil(this.destroy$))
+            .toPromise();
 
-    // Save all scenes in order
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      const request: SceneCreateRequest = {
-        comicBookId: comicBookId,
-        sceneOrder: i,
-        userDescription: scene.description,
-        imagePath: scene.imageFile ? await this.handleImageUpload(scene.imageFile) : scene.imagePath
-      };
+        // Create a map of existing scenes by sceneId for easier lookup
+        const existingSceneMap = new Map(existingScenes?.map(scene => [scene.sceneId, scene]));
 
-      try {
-        await this.comicBookService.createScene(request).toPromise();
-      } catch (error) {
-        this.toastr.error(`Error saving scene ${i + 1}`);
+        // Track which scenes are still present
+        const processedSceneIds = new Set<string>();
+
+        // Process each scene
+        for (const scene of scenes) {
+            // Handle image upload first if there's a pending upload
+            let imagePath = scene.imagePath;
+            if (scene.imageFile) {
+                imagePath = await this.handleImageUpload(scene.imageFile);
+            }
+
+            if (scene.sceneId && existingSceneMap.has(scene.sceneId)) {
+                // Scene exists - check if it needs updating
+                const existingScene = existingSceneMap.get(scene.sceneId)!;
+                processedSceneIds.add(scene.sceneId);
+
+                // Update if any properties have changed
+                if (existingScene.userDescription !== scene.description ||
+                    existingScene.imagePath !== imagePath ||
+                    existingScene.sceneOrder !== scene.order) {
+                    let sceneUpdateRequest: SceneUpdateRequest = {
+                      userDescription: scene.description,
+                      imagePath: imagePath,
+                      sceneOrder: scene.order
+                    };
+                    await this.comicBookService.updateScene(this.selectedComicBookId.value || "" , scene.sceneId, sceneUpdateRequest).toPromise();
+                }
+            } else {
+                // Create new scene
+                const createResponse = await this.comicBookService.createScene({
+                    comicBookId: this.selectedComicBookId.value || "",
+                    sceneOrder: scene.order,
+                    userDescription: scene.description,
+                    imagePath: imagePath
+                }).toPromise();
+
+                if (createResponse) {
+                    processedSceneIds.add(createResponse.sceneId);
+                }
+            }
+        }
+
+        // Delete scenes that no longer exist
+        if (existingScenes) {
+            for (const existingScene of existingScenes) {
+                if (!processedSceneIds.has(existingScene.sceneId)) {
+                    await this.comicBookService.deleteScene(
+                        this.selectedComicBookId.value!,
+                        existingScene.sceneId
+                    ).toPromise();
+                }
+            }
+        }
+
+        // Store the scene count after successful save
+        this.sceneCount = scenes.length;
+        
+    } catch (error) {
+        this.toastr.error('Error saving scenes');
         throw error;
-      }
     }
   }
 
@@ -231,12 +283,10 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
 
         if (this.currentStep === 0) {
             if (this.selectedComicBookId.value === 'new') {
-                // Check for duplicate title one more time before creating
                 if (this.checkDuplicateTitle(this.comicForm.get('title')?.value)) {
                     this.toastr.error('A comic book with this title already exists');
                     return;
                 }
-                // Save initial comic book details
                 await this.saveComicBookDetails();
             } else {
                 // Update existing comic book
@@ -274,19 +324,15 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
                 }
             }
 
-            // Set the comic book ID in the service for subsequent operations
             this.comicBookService.currentComicBookId.next(this.selectedComicBookId.value);
+            this.currentStep++;
+            this.updateDropdownState();
         }
         else if (this.currentStep === 1) {
             const sceneManager = this.sceneManagerComponent;
 
-            if (!sceneManager) {
-                this.toastr.error('Scene manager not initialized');
-                return;
-            }
-
-            if (!this.selectedComicBookId.value) {
-                this.toastr.error('No comic book selected');
+            if (!sceneManager || !this.selectedComicBookId.value) {
+                this.toastr.error('Scene manager not initialized or no comic book selected');
                 return;
             }
 
@@ -295,81 +341,16 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
                 return;
             }
 
-            try {
-                // Get existing scenes first
-                const existingScenes = await this.comicBookService.getScenes(this.selectedComicBookId.value)
-                    .pipe(takeUntil(this.destroy$))
-                    .toPromise();
+            // Save scenes and wait for completion
+            await this.saveScenes(sceneManager.state.scenes);
 
-                // Create a map of existing scenes by sceneId for easier lookup
-                const existingSceneMap = new Map(existingScenes?.map(scene => [scene.sceneId, scene]));
-
-                // Track which scenes are still present
-                const processedSceneIds = new Set<string>();
-
-                // Process each scene
-                for (const scene of sceneManager.state.scenes) {
-                    // Handle image upload first if there's a pending upload
-                    let imagePath = scene.imagePath;
-                    if (scene.imageFile) {
-                        imagePath = await this.handleImageUpload(scene.imageFile);
-                    }
-
-                    if (scene.sceneId && existingSceneMap.has(scene.sceneId)) {
-                        // Scene exists - check if it needs updating
-                        const existingScene = existingSceneMap.get(scene.sceneId)!;
-                        processedSceneIds.add(scene.sceneId);
-
-                        // Update if any properties have changed
-                        if (existingScene.userDescription !== scene.description ||
-                            existingScene.imagePath !== imagePath ||
-                            existingScene.sceneOrder !== scene.order) {
-                            let sceneUpdateRequest: SceneUpdateRequest = {
-                              userDescription: scene.description,
-                              imagePath: imagePath,
-                              sceneOrder: scene.order
-                            };
-                            await this.comicBookService.updateScene(this.selectedComicBookId.value, scene.sceneId, sceneUpdateRequest).toPromise();
-                        }
-                    } else {
-                        // Create new scene
-                        const createResponse = await this.comicBookService.createScene({
-                            comicBookId: this.selectedComicBookId.value,
-                            sceneOrder: scene.order,
-                            userDescription: scene.description,
-                            imagePath: imagePath
-                        }).toPromise();
-
-                        if (createResponse) {
-                            processedSceneIds.add(createResponse.sceneId);
-                        }
-                    }
-                }
-
-                // Delete scenes that no longer exist
-                if (existingScenes) {
-                    for (const existingScene of existingScenes) {
-                        if (!processedSceneIds.has(existingScene.sceneId)) {
-                            await this.comicBookService.deleteScene(
-                                this.selectedComicBookId.value,
-                                existingScene.sceneId
-                            ).toPromise();
-                        }
-                    }
-                }
-            } catch (error) {
-                this.toastr.error('Error saving scenes');
-                throw error;
-            }
-        }
-
-        if (this.currentStep < this.totalSteps - 1) {
+            // Only proceed after data is loaded
             this.currentStep++;
             this.updateDropdownState();
         }
     } catch (error) {
-        console.error('Error saving progress:', error);
-        this.toastr.error('Error saving progress');
+        console.error('Error during step transition:', error);
+        this.toastr.error('Error transitioning to next step');
     } finally {
         this.isProcessing = false;
     }

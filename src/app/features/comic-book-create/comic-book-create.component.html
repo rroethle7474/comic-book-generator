@@ -55,28 +55,63 @@
 
       <!-- Step 4: Review & Preview -->
       <div *ngIf="currentStep === 2" [@slideInOut] class="step">
+        <!-- Navigation Buttons moved to top -->
+        <div class="mb-8 flex justify-between">
+          <button type="button"
+                  (click)="prevStep()"
+                  class="bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400">
+            Previous
+          </button>
+          <button type="button"
+                  (click)="submit()"
+                  [disabled]="isButtonDisabled()"
+                  class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            Submit
+          </button>
+        </div>
+
         <h2 class="text-2xl font-bold mb-4">Review Your Comic Book</h2>
-        <div class="mb-4">
-          <h3 class="font-semibold">Title:</h3>
-          <p>{{ comicForm.value.title }}</p>
+        
+        <!-- Basic Details -->
+        <div class="mb-6">
+          <h3 class="text-xl font-semibold mb-2">Basic Details</h3>
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <div class="mb-4">
+              <span class="font-medium">Title:</span>
+              <p class="mt-1">{{ comicForm.value.title }}</p>
+            </div>
+            <div>
+              <span class="font-medium">Description:</span>
+              <p class="mt-1">{{ comicForm.value.description }}</p>
+            </div>
+          </div>
         </div>
-        <div class="mb-4">
-          <h3 class="font-semibold">Description:</h3>
-          <p>{{ comicForm.value.description }}</p>
+
+        <!-- Additional Details -->
+        <div class="mb-8">
+          <h3 class="text-xl font-semibold mb-2">Additional Details</h3>
+          <textarea 
+            formControlName="additionalDetails"
+            rows="4"
+            placeholder="Add any additional details about your comic book (optional)"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+          </textarea>
         </div>
+
+        <!-- Scenes Grid -->
         <div>
-          <h3 class="font-semibold">Scenes:</h3>
-          <div *ngFor="let scene of comicForm.value.scenes; let i = index" class="mb-2">
-            <p class="font-semibold">Scene {{ i + 1 }}:</p>
-            <p>Image: {{ scene.image ? 'Selected' : 'Not selected' }}</p>
-            <p>Description: {{ scene.description }}</p>
+          <h3 class="text-xl font-semibold mb-4">Scenes</h3>
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <p class="text-gray-600">
+              Number of scenes: {{ sceneCount }}
+            </p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Navigation Buttons -->
-    <div class="mt-8 flex justify-between">
+    <!-- Navigation Buttons (for non-review steps) -->
+    <div *ngIf="currentStep !== 2" class="mt-8 flex justify-between">
       <button type="button"
               (click)="prevStep()"
               [disabled]="currentStep === 0"
@@ -84,10 +119,10 @@
         Previous
       </button>
       <button type="button"
-            (click)="currentStep < totalSteps - 1 ? nextStep() : submit()"
-            [disabled]="isButtonDisabled()"
-            class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
-      {{ currentStep < totalSteps - 1 ? 'Next' : 'Submit' }}
+              (click)="nextStep()"
+              [disabled]="isButtonDisabled()"
+              class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+        Next
       </button>
     </div>
   </form>
