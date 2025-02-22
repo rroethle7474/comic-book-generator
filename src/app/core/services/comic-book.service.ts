@@ -16,7 +16,10 @@ import {
   SceneUpdateRequest,
   SceneUpdateResponse,
   SceneGetResponse,
-  SceneDeleteResponse
+  SceneDeleteResponse,
+  AssetCreateRequest,
+  AssetUpdateRequest,
+  AssetResponse
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -107,5 +110,31 @@ export class ComicBookService extends ApiBaseService {
 
   deleteScene(comicBookId: string, sceneId: string): Observable<SceneDeleteResponse> {
     return this.delete<SceneDeleteResponse>(`ComicBook/${comicBookId}/scene/${sceneId}`);
+  }
+
+  // Asset Management Methods
+  createAsset(comicBookId: string, request: AssetCreateRequest): Observable<AssetResponse> {
+    return this.post<AssetResponse>(`ComicBook/${comicBookId}/assets`, request);
+  }
+
+  getAsset(assetId: string): Observable<AssetResponse> {
+    return this.get<AssetResponse>(`ComicBook/assets/${assetId}`);
+  }
+
+  updateAsset(assetId: string, request: AssetUpdateRequest): Observable<AssetResponse> {
+    return this.put<AssetResponse>(`ComicBook/assets/${assetId}`, request);
+  }
+
+  deleteAsset(assetId: string): Observable<boolean> {
+    return this.delete<boolean>(`ComicBook/assets/${assetId}`);
+  }
+
+  getComicBookAssets(comicBookId: string): Observable<AssetResponse[]> {
+    return this.get<AssetResponse[]>(`ComicBook/${comicBookId}/assets`);
+  }
+
+  // Optional: Add method for updating generation status
+  updateGenerationStatus(id: string, status: string): Observable<ComicBookUpdateResponse> {
+    return this.updateComicBook(id, { generationStatus: status });
   }
 }

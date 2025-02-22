@@ -7,9 +7,12 @@ export interface IScene {
   description: string;
   imageFile?: File;
   imagePath?: string;
+  styledImagePath?: string;
   previewUrl?: string;
   status: SceneStatus;
   userDescription: string;
+  dialogueText?: string;
+  transitionNotes?: string;
   aiGeneratedStory?: string;
 }
 
@@ -73,3 +76,13 @@ export const DEFAULT_SCENE_MANAGER_CONFIG: ISceneManagerConfig = {
   maxImageSize: 5 * 1024 * 1024, // 5MB
   allowReordering: true
 };
+
+// You might want to add a new interface for assets
+export interface IAsset {
+  assetId: string;
+  comicBookId: string;
+  assetType: string;
+  filePath: string;
+  pageNumber?: number;
+  createdAt: Date;
+}

@@ -12,23 +12,33 @@ export interface ApiResponse<T> {
 export interface ComicBookCreateRequest {
     title: string;
     description: string;
+    additionalDetails?: string;
 }
 
 export interface ComicBookUpdateRequest {
     title?: string;
     description?: string;
+    additionalDetails?: string;
+    finalComicBookPath?: string;
+    generationStatus?: string;
     isCompleted?: boolean;
 }
 
 export interface ComicBookCreateResponse {
     comicBookId: string;
     title: string;
+    description?: string;
+    additionalDetails?: string;
+    generationStatus: string;
 }
 
 export interface ComicBookGetResponse {
     comicBookId: string;
     title: string;
     description: string | null;
+    additionalDetails?: string;
+    finalComicBookPath?: string;
+    generationStatus: string;
     isCompleted: boolean;
     scenes: SceneGetResponse[];
 }
@@ -50,6 +60,9 @@ export interface ComicBookListResponse {
     comicBookId: string;
     title: string;
     description: string;
+    additionalDetails?: string;
+    finalComicBookPath?: string;
+    generationStatus: string;
     isCompleted: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -60,12 +73,18 @@ export interface SceneCreateRequest {
     comicBookId: string;
     sceneOrder: number;
     imagePath?: string;
+    styledImagePath?: string;
     userDescription?: string;
+    dialogueText?: string;
+    transitionNotes?: string;
 }
 
 export interface SceneUpdateRequest {
     imagePath?: string;
+    styledImagePath?: string;
     userDescription?: string;
+    dialogueText?: string;
+    transitionNotes?: string;
     sceneOrder?: number;
     aiGeneratedStory?: string;
 }
@@ -74,7 +93,10 @@ export interface SceneGetResponse {
     sceneId: string;
     sceneOrder: number;
     imagePath: string | null;
+    styledImagePath: string | null;
     userDescription: string | null;
+    dialogueText: string | null;
+    transitionNotes: string | null;
     aiGeneratedStory: string | null;
 }
 
@@ -170,4 +192,27 @@ export interface AudioSnippetResponse {
   audioSnippetId: string;
   audioFilePath: string;
   addedAt: Date;
+}
+
+// Add new Asset DTOs
+export interface AssetCreateRequest {
+    comicBookId: string;
+    assetType: string;
+    filePath: string;
+    pageNumber?: number;
+}
+
+export interface AssetUpdateRequest {
+    assetType?: string;
+    filePath?: string;
+    pageNumber?: number;
+}
+
+export interface AssetResponse {
+    assetId: string;
+    comicBookId: string;
+    assetType: string;
+    filePath: string;
+    pageNumber?: number;
+    createdAt: Date;
 }

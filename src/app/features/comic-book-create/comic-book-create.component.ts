@@ -170,6 +170,7 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
           title: request.title,
           description: request.description,
           isCompleted: false,
+          generationStatus: "pending",
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -268,7 +269,7 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
 
         // Store the scene count after successful save
         this.sceneCount = scenes.length;
-        
+
     } catch (error) {
         this.toastr.error('Error saving scenes');
         throw error;
