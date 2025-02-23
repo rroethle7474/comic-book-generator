@@ -19,7 +19,8 @@ import {
   SceneDeleteResponse,
   AssetCreateRequest,
   AssetUpdateRequest,
-  AssetResponse
+  AssetResponse,
+  AssetType
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -114,7 +115,10 @@ export class ComicBookService extends ApiBaseService {
 
   // Asset Management Methods
   createAsset(comicBookId: string, request: AssetCreateRequest): Observable<AssetResponse> {
-    return this.post<AssetResponse>(`ComicBook/${comicBookId}/assets`, request);
+    return this.post<AssetResponse>(`ComicBook/${comicBookId}/assets`, {
+      ...request,
+      status: request.status || 'IN_PROGRESS' // Ensure default status
+    });
   }
 
   getAsset(assetId: string): Observable<AssetResponse> {
@@ -131,6 +135,38 @@ export class ComicBookService extends ApiBaseService {
 
   getComicBookAssets(comicBookId: string): Observable<AssetResponse[]> {
     return this.get<AssetResponse[]>(`ComicBook/${comicBookId}/assets`);
+  }
+
+  updateAssetStatus(assetId: string, status: string): Observable<AssetResponse> {
+    return this.updateAsset(assetId, { status });
+  }
+
+  // Helper method to create a styled image asset
+  createStyledImageAsset(comicBookId: string, filePath: string): Observable<AssetResponse> {
+    return this.createAsset(comicBookId, {
+      comicBookId,
+      assetType: AssetType.STYLED_IMAGE,
+      filePath,
+      status: 'IN_PROGRESS'
+    });
+  }
+
+  // Helper method to create a full story asset
+  createFullStoryAsset(comicBookId: string, storyText: string): Observable<AssetResponse> {
+    return this.createAsset(comicBookId, {
+      comicBookId,
+      assetType: AssetType.FULL_STORY,
+      filePath: '', // This might be updated later if needed
+      fullStoryText: storyText,
+      status: 'IN_PROGRESS'
+    });
+  }
+
+  // Helper method to get assets by type
+  getAssetsByType(comicBookId: string, assetType: AssetType): Observable<AssetResponse[]> {
+    return this.getComicBookAssets(comicBookId).pipe(
+      map(assets => assets.filter(asset => asset.assetType === assetType))
+    );
   }
 
   // Optional: Add method for updating generation status

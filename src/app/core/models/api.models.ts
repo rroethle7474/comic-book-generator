@@ -194,25 +194,39 @@ export interface AudioSnippetResponse {
   addedAt: Date;
 }
 
-// Add new Asset DTOs
+// Add the AssetType enum
+export enum AssetType {
+  FULL_STORY = 'FULL_STORY',
+  STYLED_IMAGE = 'STYLED_IMAGE',
+  PDF = 'PDF',
+  OTHER = 'OTHER'
+}
+
+// Update Asset DTOs
 export interface AssetCreateRequest {
     comicBookId: string;
-    assetType: string;
+    assetType: AssetType;
     filePath: string;
+    fullStoryText?: string;
+    status: string;
     pageNumber?: number;
 }
 
 export interface AssetUpdateRequest {
-    assetType?: string;
+    assetType?: AssetType;
     filePath?: string;
+    fullStoryText?: string;
+    status?: string;
     pageNumber?: number;
 }
 
 export interface AssetResponse {
     assetId: string;
     comicBookId: string;
-    assetType: string;
+    assetType: AssetType;
     filePath: string;
+    fullStoryText?: string;
+    status: string;
     pageNumber?: number;
     createdAt: Date;
 }

@@ -4,7 +4,7 @@ import { ComicBookService } from '../../core/services/comic-book.service';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { trigger, transition, style, animate, state } from '@angular/animations';
-import { SceneCreateRequest, ComicBookListResponse, SceneUpdateRequest } from '../../core/models/api.models';
+import { SceneCreateRequest, ComicBookListResponse, SceneUpdateRequest, AssetType } from '../../core/models/api.models';
 import { ToastrService } from 'ngx-toastr';
 import { SceneManagerComponent } from '../scene-manager/scene-manager.component';
 import { IScene, SceneStatus } from '../../core/models/scene-management.models';
@@ -445,6 +445,44 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
         title: selectedComic.title,
         description: selectedComic.description
       });
+    }
+  }
+
+  async generateFullStory() {
+    if (!this.selectedComicBookId.value) return;
+
+    try {
+      this.isProcessing = true;
+
+      // Assuming you have a method to generate the story text
+      const storyText = "This is a test story"; //await this.generateStoryText();
+
+      // Create a full story asset
+      await this.comicBookService.createFullStoryAsset(
+        this.selectedComicBookId.value,
+        storyText
+      ).toPromise();
+
+      this.toastr.success('Story generated successfully');
+    } catch (error) {
+      this.toastr.error('Error generating story');
+      console.error(error);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  async checkAssetStatus(assetId: string): Promise<void> {
+    try {
+      const asset = await this.comicBookService.getAsset(assetId).toPromise();
+      if (asset?.status === 'COMPLETED') {
+        // Handle completion
+        this.toastr.success('Asset generation completed');
+      } else if (asset?.status === 'ERROR') {
+        this.toastr.error('Asset generation failed');
+      }
+    } catch (error) {
+      console.error('Error checking asset status:', error);
     }
   }
 }
