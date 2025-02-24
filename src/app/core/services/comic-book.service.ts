@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, map } from 'rxjs';
+import { BehaviorSubject, Observable, tap, map, interval, Subscription, switchMap, takeWhile } from 'rxjs';
 import { ApiBaseService } from './api-base.service';
 import { ToastrService } from 'ngx-toastr';
 import {
@@ -20,7 +20,8 @@ import {
   AssetCreateRequest,
   AssetUpdateRequest,
   AssetResponse,
-  AssetType
+  AssetType,
+  ComicBookStatusResponse
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -30,6 +31,17 @@ import { ApiResponse } from '../models/api.models';
 export class ComicBookService extends ApiBaseService {
   currentComicBookId = new BehaviorSubject<string | null>(null);
   private currentScenes = new BehaviorSubject<Map<string, SceneCreateResponse>>(new Map());
+  private generationStatusSubject = new BehaviorSubject<string>('PENDING');
+  private generationProgressSubject = new BehaviorSubject<number>(0);
+  private pollingSubscription: Subscription | null = null;
+  private isPolling = false;
+  private estimatedTimeSubject = new BehaviorSubject<string | null>(null);
+  private statusMessageSubject = new BehaviorSubject<string | null>(null);
+
+  generationStatus$ = this.generationStatusSubject.asObservable();
+  generationProgress$ = this.generationProgressSubject.asObservable();
+  estimatedTime$ = this.estimatedTimeSubject.asObservable();
+  statusMessage$ = this.statusMessageSubject.asObservable();
 
   constructor(http: HttpClient, toastr: ToastrService) {
     super(http, toastr);
@@ -188,6 +200,65 @@ export class ComicBookService extends ApiBaseService {
 
   // Add this new method
   generateComicBook(assetId: string): Observable<boolean> {
-    return this.post<boolean>(`ComicBook/generate/${assetId}`, {});
+    if (this.isPolling) {
+      // Return the existing status if already polling
+      return this.generationStatus$.pipe(
+        map(status => status !== 'ERROR')
+      );
+    }
+
+    return this.post<boolean>(`ComicBook/generate/${assetId}`, {}).pipe(
+      tap(response => {
+        if (response) {
+          this.startPolling(assetId);
+        }
+      })
+    );
+  }
+
+  private startPolling(assetId: string) {
+    console.log('Starting polling for asset:', assetId);
+    if (this.isPolling) return;
+    console.log('Starting polling after checking if polling is already in progress for asset:', assetId);
+    this.isPolling = true;
+    this.pollingSubscription = interval(3000)
+      .pipe(
+        switchMap(() => this.get<ComicBookStatusResponse>(`ComicBook/status/${assetId}`)),
+        takeWhile(response => {
+          // Continue polling until we reach a terminal state
+          const continuePolling = !['COMPLETED', 'ERROR', 'Failed'].includes(response.status);
+          if (!continuePolling) {
+            this.stopPolling();
+          }
+          return continuePolling;
+        }, true) // Include the last value
+      )
+      .subscribe({
+        next: (response) => {
+          console.log('Received response from polling:', response);
+          console.log('Updating generation status:', response.status);
+          this.generationStatusSubject.next(response.status);
+          this.generationProgressSubject.next(response.progress);
+          this.estimatedTimeSubject.next(response.estimatedTimeRemaining || null);
+          this.statusMessageSubject.next(response.message || null);
+        },
+        error: (error) => {
+          console.error('Polling error:', error);
+          this.generationStatusSubject.next('ERROR');
+          this.generationProgressSubject.next(0);
+          this.estimatedTimeSubject.next(null);
+          this.statusMessageSubject.next('Error checking generation status');
+          this.stopPolling();
+        }
+      });
+  }
+
+  private stopPolling() {
+    console.log('Stopping polling');
+    this.isPolling = false;
+    if (this.pollingSubscription) {
+      this.pollingSubscription.unsubscribe();
+      this.pollingSubscription = null;
+    }
   }
 }

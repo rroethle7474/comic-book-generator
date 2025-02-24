@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ComicBookService } from '../../core/services/comic-book.service';
-import { interval, Subject, takeUntil } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { ToastrService } from 'ngx-toastr';
 
@@ -17,6 +17,8 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   status: string = 'Initializing...';
   progressWidth: string = '0%';
+  estimatedTime: string | null = null;
+  statusMessage: string | null = null;
 
   private comicBookId: string | null = null;
   private assetId: string | null = null;
@@ -28,6 +30,7 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Subscribe to query params
     this.route.queryParams.subscribe(params => {
       this.comicBookId = params['comicBookId'];
       this.assetId = params['assetId'];
@@ -36,93 +39,67 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
         this.toastr.error('Missing required parameters');
         return;
       }
-      // add method to start the generation of the comic book
+
+      // Start generation and subscribe to status updates
       this.startGeneration();
-      this.startPolling();
+      this.subscribeToGenerationUpdates();
     });
   }
 
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
   private startGeneration() {
-    console.log('Starting generation for asset:', this.assetId);
-    if (!this.assetId) {
-      this.toastr.error('No asset ID available');
-      return;
-    }
+    if (!this.assetId) return;
 
-    this.status = 'Starting generation...';
-    this.progressWidth = '10%';
-
-    // We'll use the takeUntil operator to handle cleanup if the component is destroyed
     this.comicBookService.generateComicBook(this.assetId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (response) => {
-          if (response) {
-            this.status = 'Generation started';
-            this.progressWidth = '25%';
-            // The polling will handle the rest of the status updates
-          } else {
-            this.status = 'Failed to start generation';
-            this.toastr.error('Failed to start comic book generation');
-          }
-        },
         error: (error) => {
           console.error('Error starting generation:', error);
-          this.status = 'Error starting generation';
           this.toastr.error('Failed to start comic book generation');
         }
       });
   }
 
-  private startPolling() {
-    if (!this.assetId) return;
+  private subscribeToGenerationUpdates() {
+    // Subscribe to status updates
+    this.comicBookService.generationStatus$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        this.status = status;
 
-    interval(3000)  // Poll every 3 seconds
-      .pipe(
-        takeUntil(this.destroy$),
-        switchMap(() => this.comicBookService.getAsset(this.assetId!))
-      )
-      .subscribe({
-        next: (asset) => {
-          this.status = asset.status;
-
-          // Update progress based on status
-          switch (asset.status) {
-            case 'STARTING':
-              this.progressWidth = '25%';
-              break;
-            case 'GENERATING_IMAGES':
-              this.progressWidth = '50%';
-              break;
-            case 'GENERATING_STORY':
-              this.progressWidth = '75%';
-              break;
-            case 'IN_PROGRESS':
-              this.progressWidth = '50%';
-              break;
-            case 'COMPLETED':
-              this.progressWidth = '100%';
-              this.toastr.success('Comic book generation completed!');
-              this.destroy$.next(); // Stop polling
-              break;
-            case 'ERROR':
-              this.progressWidth = '0%';
-              this.toastr.error('Error generating comic book');
-              this.destroy$.next(); // Stop polling
-              break;
-            default:
-              this.progressWidth = '25%';
-          }
-        },
-        error: (error) => {
-          console.error('Error polling asset status:', error);
-          this.toastr.error('Error checking generation status');
+        if (status === 'COMPLETED') {
+          this.toastr.success('Comic book generation completed!');
+        } else if (status === 'ERROR' || status === 'Failed') {
+          this.toastr.error('Error generating comic book');
         }
       });
+
+    // Subscribe to progress updates
+    this.comicBookService.generationProgress$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(progress => {
+        this.progressWidth = `${progress}%`;
+      });
+
+    // New estimated time subscription
+    this.comicBookService.estimatedTime$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(time => {
+        this.estimatedTime = time;
+      });
+
+    // New status message subscription
+    this.comicBookService.statusMessage$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(message => {
+        this.statusMessage = message;
+        if (message) {
+          this.toastr.info(message);
+        }
+      });
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

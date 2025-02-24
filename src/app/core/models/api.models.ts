@@ -230,3 +230,11 @@ export interface AssetResponse {
     pageNumber?: number;
     createdAt: Date;
 }
+
+export interface ComicBookStatusResponse {
+  status: string;
+  progress: number;
+  estimatedTimeRemaining?: string;
+  message?: string;
+  assetId?: string;
+}
