@@ -132,6 +132,7 @@ export class ComicBookService extends ApiBaseService {
   }
 
   getAsset(assetId: string): Observable<AssetResponse> {
+    console.log('Getting asset:', assetId);
     return this.get<AssetResponse>(`ComicBook/assets/${assetId}`);
   }
 
@@ -183,5 +184,10 @@ export class ComicBookService extends ApiBaseService {
   // Optional: Add method for updating generation status
   updateGenerationStatus(id: string, status: string): Observable<ComicBookUpdateResponse> {
     return this.updateComicBook(id, { generationStatus: status });
+  }
+
+  // Add this new method
+  generateComicBook(assetId: string): Observable<boolean> {
+    return this.post<boolean>(`ComicBook/generate/${assetId}`, {});
   }
 }

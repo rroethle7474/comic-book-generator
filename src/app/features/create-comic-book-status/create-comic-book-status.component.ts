@@ -36,7 +36,8 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
         this.toastr.error('Missing required parameters');
         return;
       }
-
+      // add method to start the generation of the comic book
+      this.startGeneration();
       this.startPolling();
     });
   }
@@ -44,6 +45,38 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private startGeneration() {
+    console.log('Starting generation for asset:', this.assetId);
+    if (!this.assetId) {
+      this.toastr.error('No asset ID available');
+      return;
+    }
+
+    this.status = 'Starting generation...';
+    this.progressWidth = '10%';
+
+    // We'll use the takeUntil operator to handle cleanup if the component is destroyed
+    this.comicBookService.generateComicBook(this.assetId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response) {
+            this.status = 'Generation started';
+            this.progressWidth = '25%';
+            // The polling will handle the rest of the status updates
+          } else {
+            this.status = 'Failed to start generation';
+            this.toastr.error('Failed to start comic book generation');
+          }
+        },
+        error: (error) => {
+          console.error('Error starting generation:', error);
+          this.status = 'Error starting generation';
+          this.toastr.error('Failed to start comic book generation');
+        }
+      });
   }
 
   private startPolling() {
@@ -60,16 +93,27 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
 
           // Update progress based on status
           switch (asset.status) {
+            case 'STARTING':
+              this.progressWidth = '25%';
+              break;
+            case 'GENERATING_IMAGES':
+              this.progressWidth = '50%';
+              break;
+            case 'GENERATING_STORY':
+              this.progressWidth = '75%';
+              break;
             case 'IN_PROGRESS':
               this.progressWidth = '50%';
               break;
             case 'COMPLETED':
               this.progressWidth = '100%';
               this.toastr.success('Comic book generation completed!');
+              this.destroy$.next(); // Stop polling
               break;
             case 'ERROR':
               this.progressWidth = '0%';
               this.toastr.error('Error generating comic book');
+              this.destroy$.next(); // Stop polling
               break;
             default:
               this.progressWidth = '25%';
