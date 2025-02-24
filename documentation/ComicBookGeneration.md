@@ -30,7 +30,7 @@ ComicBookAssets status is set to “COMPLETED,” and the user can view/download
 ## Task Breakdown
 1. Frontend (Angular)
 Comic Creation UI
-“Generate” Button & Progress Page
+“submit” Button & Progress Page
 
 Task: On click, send a request to the API to initiate generation, receive a “ComicBookAssetId.”
 Task: Redirect user to a progress/monitor page that polls the status endpoint.

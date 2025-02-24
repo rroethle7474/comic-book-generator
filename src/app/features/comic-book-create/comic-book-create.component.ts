@@ -9,6 +9,7 @@ import { ToastrService } from 'ngx-toastr';
 import { SceneManagerComponent } from '../scene-manager/scene-manager.component';
 import { IScene, SceneStatus } from '../../core/models/scene-management.models';
 import { environment } from '../../../environment/environment';
+import { Router } from '@angular/router';
 
 
 export interface Step {
@@ -70,7 +71,8 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private comicBookService: ComicBookService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private router: Router
   ) {
     this.initForm();
   }
@@ -404,12 +406,55 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     }
   }
 
-  submit() {
-    if (this.comicForm.valid) {
-      console.log('Form Submitted:', this.comicForm.value);
-      // Stub: Integrate with a service to send data to the backend.
-    } else {
-      console.log('Form is invalid.');
+  async submit() {
+    if (!this.selectedComicBookId.value) {
+      this.toastr.error('No comic book selected');
+      return;
+    }
+
+    try {
+      this.isProcessing = true;
+
+      // First check if there's an existing asset
+      const existingAssets = await this.comicBookService.getAssetsByType(
+        this.selectedComicBookId.value,
+        AssetType.FULL_STORY
+      ).toPromise();
+
+      let assetId: string;
+
+      if (existingAssets && existingAssets.length > 0) {
+        // Use existing asset
+        assetId = existingAssets[0].assetId;
+        // Update status to IN_PROGRESS
+        await this.comicBookService.updateAssetStatus(assetId, 'IN_PROGRESS').toPromise();
+      } else {
+        // Create new asset
+        const response = await this.comicBookService.createFullStoryAsset(
+          this.selectedComicBookId.value,
+          ''  // Empty initial story text
+        ).toPromise();
+
+        if (!response) {
+          throw new Error('Failed to create asset');
+        }
+
+        assetId = response.assetId;
+      }
+
+      // Navigate to status page with both IDs
+      this.router.navigate(['/create-comic-book-status'], {
+        queryParams: {
+          comicBookId: this.selectedComicBookId.value,
+          assetId: assetId
+        }
+      });
+
+    } catch (error) {
+      console.error('Error submitting comic book:', error);
+      this.toastr.error('Failed to submit comic book');
+    } finally {
+      this.isProcessing = false;
     }
   }
 

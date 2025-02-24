@@ -205,7 +205,7 @@ export enum AssetType {
 // Update Asset DTOs
 export interface AssetCreateRequest {
     comicBookId: string;
-    assetType: AssetType;
+    assetType: string;
     filePath: string;
     fullStoryText?: string;
     status: string;
@@ -213,7 +213,7 @@ export interface AssetCreateRequest {
 }
 
 export interface AssetUpdateRequest {
-    assetType?: AssetType;
+    assetType?: string;
     filePath?: string;
     fullStoryText?: string;
     status?: string;
@@ -223,7 +223,7 @@ export interface AssetUpdateRequest {
 export interface AssetResponse {
     assetId: string;
     comicBookId: string;
-    assetType: AssetType;
+    assetType: string;
     filePath: string;
     fullStoryText?: string;
     status: string;

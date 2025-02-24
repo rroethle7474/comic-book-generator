@@ -115,10 +115,20 @@ export class ComicBookService extends ApiBaseService {
 
   // Asset Management Methods
   createAsset(comicBookId: string, request: AssetCreateRequest): Observable<AssetResponse> {
-    return this.post<AssetResponse>(`ComicBook/${comicBookId}/assets`, {
-      ...request,
-      status: request.status || 'IN_PROGRESS' // Ensure default status
-    });
+    console.log('Creating asset for comic book:', comicBookId);
+    const payload = {
+      comicBookId,
+      assetType: request.assetType,  // No need to convert, it's already a string
+      filePath: request.filePath || '',
+      fullStoryText: request.fullStoryText,
+      status: request.status || 'IN_PROGRESS',
+      pageNumber: request.pageNumber
+    };
+
+    console.log('Asset Type:', request.assetType);
+    console.log('Full Payload:', payload);
+
+    return this.post<AssetResponse>(`ComicBook/${comicBookId}/assets`, payload);
   }
 
   getAsset(assetId: string): Observable<AssetResponse> {
@@ -145,7 +155,7 @@ export class ComicBookService extends ApiBaseService {
   createStyledImageAsset(comicBookId: string, filePath: string): Observable<AssetResponse> {
     return this.createAsset(comicBookId, {
       comicBookId,
-      assetType: AssetType.STYLED_IMAGE,
+      assetType: 'STYLED_IMAGE',  // Use string directly
       filePath,
       status: 'IN_PROGRESS'
     });
@@ -153,10 +163,11 @@ export class ComicBookService extends ApiBaseService {
 
   // Helper method to create a full story asset
   createFullStoryAsset(comicBookId: string, storyText: string): Observable<AssetResponse> {
+    console.log('Creating full story asset for comic book:', comicBookId);
     return this.createAsset(comicBookId, {
       comicBookId,
-      assetType: AssetType.FULL_STORY,
-      filePath: '', // This might be updated later if needed
+      assetType: 'FULL_STORY',  // Use string directly
+      filePath: '',
       fullStoryText: storyText,
       status: 'IN_PROGRESS'
     });
@@ -165,7 +176,7 @@ export class ComicBookService extends ApiBaseService {
   // Helper method to get assets by type
   getAssetsByType(comicBookId: string, assetType: AssetType): Observable<AssetResponse[]> {
     return this.getComicBookAssets(comicBookId).pipe(
-      map(assets => assets.filter(asset => asset.assetType === assetType))
+      map(assets => assets.filter(asset => asset.assetType === assetType.toString()))
     );
   }
 
