@@ -255,3 +255,49 @@ export interface CompletedComicResponse {
   filePath: string;
   completedAt: Date;
 }
+
+export interface HuggingFaceModelResponse {
+  modelId: string;
+  name: string;
+  description: string;
+  lastModified: Date;
+  isLinkedToVoiceModel?: boolean;
+  linkedVoiceModelId?: string;
+}
+
+// Audio Recording
+export interface AudioRecordingDetails {
+  audioSnippetId: string;
+  audioFilePath: string;
+  recordedAt: Date;
+}
+
+// Step Response
+export interface StepResponse {
+  stepId: string;
+  stepNumber: number;
+  transcriptText: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Step with Recording
+export interface StepWithRecordingResponse {
+  stepId: string;
+  stepNumber: number;
+  transcriptText: string;
+  recording?: AudioRecordingDetails;
+}
+
+// Voice Model Progress
+export interface VoiceModelStepsProgress {
+  voiceModelId: string;
+  totalSteps: number;
+  completedSteps: number;
+  steps: StepWithRecordingResponse[];
+}
+
+// Requests for Synthesizing Speech
+export interface SynthesizeSpeechRequest {
+  textToSynthesize: string;
+}

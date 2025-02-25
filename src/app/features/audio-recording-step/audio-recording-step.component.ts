@@ -31,13 +31,14 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   isRecording = false;
   isPlaying = false;
   isTraining = false;
+  isTrainingComplete = false;
   mediaRecorder: MediaRecorder | null = null;
   audioElement: HTMLAudioElement | null = null;
-  recordings: { 
+  recordings: {
     [key: number]: {
       audioFilePath: string;
       audioSnippetId: string;
-    } | null 
+    } | null
   } = {};
   readonly Math = Math;
   protected readonly Object = Object;
@@ -57,7 +58,7 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Reset current index at component initialization
     this.currentIndex = 0;
-    
+
     this.voiceMimickingService.getCurrentVoiceModelId().subscribe(
       id => {
         if (!id) {
@@ -103,7 +104,7 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     try {
       const progress = await this.voiceMimickingService.getVoiceModelProgress(this.selectedModelId).toPromise();
       console.log("Loaded Progress:", progress);
-      
+
       if (progress) {
         this.steps = progress.steps;
         this.transcripts = progress.steps.map(step => step.transcriptText);
@@ -176,11 +177,11 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
           // Upload the recording with the stepId
           const response = await this.voiceMimickingService.uploadAudioSnippet(
-            this.selectedModelId, 
+            this.selectedModelId,
             blob,
             currentStep.stepId
           ).toPromise();
-          
+
           console.log('Upload Response in Component:', response);
 
           if (!response?.audioSnippetId) {
@@ -201,7 +202,7 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
           // Refresh the steps data to get the latest state
           await this.loadStepsAndRecordings();
-          
+
           this.toastr.success('Recording saved successfully');
         } catch (error) {
           console.error('Error in onstop handler:', error);
@@ -245,7 +246,7 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     } else {
       const recording = this.recordings[this.currentIndex];
       if (!recording) return;
-      
+
       const audioPath = recording.audioFilePath;
       console.log("AUDIO PATH", audioPath);
 
@@ -329,9 +330,21 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
     try {
       this.isTraining = true;
-      await this.voiceMimickingService.initiateModelTraining(this.selectedModelId).toPromise();
-      this.toastr.success('Training started successfully');
-      // Navigate to a training status page or update UI accordingly
+      this.toastr.info('Initiating model training. This may take a few minutes...');
+
+      // Initiate the training process
+      const response = await this.voiceMimickingService.initiateModelTraining(this.selectedModelId).toPromise();
+
+      // Mark the model as completed
+      await this.voiceMimickingService.updateVoiceModel(
+        this.selectedModelId,
+        { isCompleted: true }
+      ).toPromise();
+
+      this.toastr.success('Training started successfully. Your voice model will be ready shortly.');
+
+      // Navigate to the voice model view to see the trained model
+      this.router.navigate(['/view-voice-model']);
     } catch (error) {
       console.error('Error starting training:', error);
       this.toastr.error('Failed to start training');
@@ -344,4 +357,9 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
     // Disabled in this component, so this won't be called
     this.selectedModelId = modelId;
   }
+
+// Add this method to the component class
+viewTrainedModel() {
+  this.router.navigate(['/view-voice-model']);
+}
 }

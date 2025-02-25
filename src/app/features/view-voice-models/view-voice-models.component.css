@@ -1,0 +1,92 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background-color: #1f2937;
+  color: white;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Audio player styling */
+audio {
+  border-radius: 24px;
+  background-color: #374151;
+  width: 100%;
+}
+
+audio::-webkit-media-controls-panel {
+  background-color: #374151;
+}
+
+audio::-webkit-media-controls-play-button {
+  background-color: #2563eb;
+  border-radius: 50%;
+}
+
+audio::-webkit-media-controls-current-time-display,
+audio::-webkit-media-controls-time-remaining-display {
+  color: white;
+}
+
+/* Card effects */
+.bg-gray-700 {
+  transition: all 0.3s ease;
+}
+
+.bg-gray-800 {
+  transition: all 0.3s ease;
+}
+
+.bg-blue-900 {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Make sure our grid fills the available space */
+.flex-grow {
+  flex-grow: 1;
+}
+
+/* Font styling for model IDs */
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Fixed position sidebar on larger screens */
+@media (min-width: 768px) {
+  .sticky-sidebar {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}

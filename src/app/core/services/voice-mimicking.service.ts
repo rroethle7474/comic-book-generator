@@ -12,6 +12,11 @@ import {
   AudioSnippetUploadResponse,
   TrainModelResponse,
   AudioSnippetResponse,
+  SynthesizeSpeechRequest,
+  SynthesizeSpeechResponse,
+  HuggingFaceModelResponse,
+  StepResponse,
+  StepWithRecordingResponse,
   ApiResponse
 } from '../models/api.models';
 
@@ -89,7 +94,7 @@ export class VoiceMimickingService extends ApiBaseService {
     return this.put<VoiceModelUpdateResponse>(`voice-mimic/${voiceModelId}`, request);
   }
 
-  // New methods for audio recording
+  // Audio recording methods
   uploadAudioSnippet(voiceModelId: string, audioBlob: Blob, stepId: string): Observable<AudioSnippetUploadResponse> {
     const formData = new FormData();
     formData.append('audioFile', audioBlob, 'recording.wav');
@@ -114,10 +119,10 @@ export class VoiceMimickingService extends ApiBaseService {
   }
 
   deleteAudioSnippet(audioSnippetId: string): Observable<boolean> {
-    console.log("DELETE AUDIO SNIPPET", audioSnippetId);
     return this.delete<boolean>(`voice-mimic/audio-snippet/${audioSnippetId}`);
   }
 
+  // Model training methods
   initiateModelTraining(voiceModelId: string): Observable<TrainModelResponse> {
     return this.post<TrainModelResponse>(`voice-mimic/voice-model/${voiceModelId}/train`, {});
   }
@@ -150,5 +155,50 @@ export class VoiceMimickingService extends ApiBaseService {
   // Add new method to update the entire recording state
   updateRecordingState(state: RecordingState) {
     this.recordingState.next(state);
+  }
+
+  // Get all recording steps
+  getAllSteps(): Observable<StepResponse[]> {
+    return this.get<StepResponse[]>('voice-mimic/steps');
+  }
+
+  // Add recording for a specific step
+  addAudioSnippetForStep(voiceModelId: string, stepId: string, audioBlob: Blob): Observable<AudioSnippetUploadResponse> {
+    const formData = new FormData();
+    formData.append('audioFile', audioBlob, 'recording.wav');
+
+    return this.post<AudioSnippetUploadResponse>(
+      `voice-mimic/voice-model/${voiceModelId}/step/${stepId}/recording`,
+      formData
+    );
+  }
+
+  // Get step recordings for a model
+  getStepRecordingsForModel(voiceModelId: string): Observable<StepWithRecordingResponse[]> {
+    return this.get<StepWithRecordingResponse[]>(`voice-mimic/voice-model/${voiceModelId}/step-recordings`);
+  }
+
+  // Synthesize speech with a model
+  synthesizeSpeech(voiceModelId: string, text: string): Observable<SynthesizeSpeechResponse> {
+    const request: SynthesizeSpeechRequest = {
+      textToSynthesize: text
+    };
+
+    return this.post<SynthesizeSpeechResponse>(`voice-mimic/synthesize/${voiceModelId}`, request);
+  }
+
+  // Get HuggingFace Models
+  getHuggingFaceModels(): Observable<HuggingFaceModelResponse[]> {
+    return this.get<HuggingFaceModelResponse[]>('voice-mimic/huggingface-models');
+  }
+
+  // Delete HuggingFace Model
+  deleteHuggingFaceModel(modelName: string): Observable<boolean> {
+    return this.delete<boolean>(`voice-mimic/huggingface-model/${modelName}`);
+  }
+
+  // Start a recording session
+  startRecording(): Observable<{ recordingSessionId: string; message: string }> {
+    return this.post<{ recordingSessionId: string; message: string }>('voice-mimic/start-recording', {});
   }
 }
