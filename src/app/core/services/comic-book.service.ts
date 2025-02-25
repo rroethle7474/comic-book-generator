@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, map, interval, Subscription, switchMap, takeWhile, catchError, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, tap, map, interval, Subscription, switchMap, takeWhile, catchError, throwError, of } from 'rxjs';
 import { ApiBaseService } from './api-base.service';
 import { ToastrService } from 'ngx-toastr';
 import {
@@ -22,7 +22,8 @@ import {
   AssetResponse,
   AssetType,
   ComicBookStatusResponse,
-  AssetDetailsResponse
+  AssetDetailsResponse,
+  CompletedComicResponse
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -268,6 +269,43 @@ export class ComicBookService extends ApiBaseService {
 
   getAssetDetails(assetId: string): Observable<AssetDetailsResponse> {
     return this.get<AssetDetailsResponse>(`ComicBook/assets/${assetId}/details`);
+  }
+
+  getCompletedComics(): Observable<CompletedComicResponse[]> {
+    // This endpoint doesn't exist yet, but this is how we'd call it
+    return this.get<CompletedComicResponse[]>('ComicBook/completed')
+      .pipe(
+        map(response => {
+          return response ?? [];
+        })
+      );
+  }
+
+  deleteComicBookWithConfirmation(comicBookId: string): Observable<boolean> {
+    // First ask for confirmation with clear warning about data loss
+    const confirmed = confirm(
+      'Are you sure you want to delete this comic book?\n\n' +
+      'This will permanently delete:\n' +
+      '- The comic book and all its details\n' +
+      '- All scenes and their images\n' +
+      '- Any generated PDFs or other assets\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) {
+      return of(false);
+    }
+
+    // If confirmed, proceed with deletion
+    return this.delete<ComicBookDeleteResponse>(`ComicBook/${comicBookId}`)
+      .pipe(
+        map(response => {
+          return response.isDeleted;
+        }),
+        catchError(error => {
+          return of(false);
+        })
+      );
   }
 
   private stopPolling() {

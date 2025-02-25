@@ -246,3 +246,12 @@ export interface ComicBookStatusResponse {
   message?: string;
   assetId?: string;
 }
+
+export interface CompletedComicResponse {
+  comicBookId: string;
+  assetId: string;
+  title: string;
+  description: string;
+  filePath: string;
+  completedAt: Date;
+}

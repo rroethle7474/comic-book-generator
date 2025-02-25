@@ -1,1 +1,92 @@
-<p>view-comics works!</p>
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">Comic Book Library</h1>
+
+  <!-- Tab Navigation -->
+  <div class="flex mb-6 border-b border-gray-200">
+    <button
+      [ngClass]="{'border-b-2 border-blue-500 text-blue-600': activeTab === 'incomplete', 'text-gray-500': activeTab !== 'incomplete'}"
+      class="py-2 px-4 font-medium"
+      (click)="setActiveTab('incomplete')">
+      View Incomplete Comics
+    </button>
+    <button
+      [ngClass]="{'border-b-2 border-blue-500 text-blue-600': activeTab === 'completed', 'text-gray-500': activeTab !== 'completed'}"
+      class="py-2 px-4 font-medium"
+      (click)="setActiveTab('completed')">
+      View Completed Comics
+    </button>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div *ngIf="loading" class="flex justify-center my-8">
+    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+  </div>
+
+  <!-- Incomplete Comics Table -->
+  <div *ngIf="activeTab === 'incomplete' && !loading">
+    <div *ngIf="incompleteComics.length === 0" class="text-center py-8 text-gray-500">
+      No incomplete comics found. <a routerLink="/create" class="text-blue-500 hover:underline">Create one?</a>
+    </div>
+
+    <div *ngIf="incompleteComics.length > 0" class="overflow-x-auto">
+      <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
+        <thead class="bg-gray-100 text-gray-700">
+          <tr>
+            <th class="py-3 px-4 text-left">Title</th>
+            <th class="py-3 px-4 text-left">Description</th>
+            <th class="py-3 px-4 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr *ngFor="let comic of incompleteComics" class="hover:bg-gray-50">
+            <td class="py-3 px-4">{{ comic.title }}</td>
+            <td class="py-3 px-4">{{ truncateDescription(comic.description) }}</td>
+            <td class="py-3 px-4 text-center">
+              <button
+                (click)="deleteComic(comic.comicBookId)"
+                class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-sm">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Completed Comics Table -->
+  <div *ngIf="activeTab === 'completed' && !loading">
+    <div *ngIf="completedComics.length === 0" class="text-center py-8 text-gray-500">
+      No completed comics found. <a routerLink="/create" class="text-blue-500 hover:underline">Create one?</a>
+    </div>
+
+    <div *ngIf="completedComics.length > 0" class="overflow-x-auto">
+      <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
+        <thead class="bg-gray-100 text-gray-700">
+          <tr>
+            <th class="py-3 px-4 text-left">Title</th>
+            <th class="py-3 px-4 text-left">Description</th>
+            <th class="py-3 px-4 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr *ngFor="let comic of completedComics" class="hover:bg-gray-50">
+            <td class="py-3 px-4">
+              <a [routerLink]="['/view-comic', comic.assetId]" class="text-blue-500 hover:underline">
+                {{ comic.title }}
+              </a>
+            </td>
+            <td class="py-3 px-4">{{ truncateDescription(comic.description) }}</td>
+            <td class="py-3 px-4 text-center">
+              <button
+                (click)="deleteComic(comic.comicBookId)"
+                class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-sm">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
