@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, map, interval, Subscription, switchMap, takeWhile } from 'rxjs';
+import { BehaviorSubject, Observable, tap, map, interval, Subscription, switchMap, takeWhile, catchError, throwError } from 'rxjs';
 import { ApiBaseService } from './api-base.service';
 import { ToastrService } from 'ngx-toastr';
 import {
@@ -21,7 +21,8 @@ import {
   AssetUpdateRequest,
   AssetResponse,
   AssetType,
-  ComicBookStatusResponse
+  ComicBookStatusResponse,
+  AssetDetailsResponse
 } from '../models/api.models';
 import { ApiResponse } from '../models/api.models';
 
@@ -216,6 +217,18 @@ export class ComicBookService extends ApiBaseService {
     );
   }
 
+  generateComicBookPdf(assetId: string): Observable<string> {
+    return this.post<string>(`ComicBook/generate-pdf/${assetId}`, {})
+      .pipe(
+        tap(response => {
+          return response;
+        }),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
   private startPolling(assetId: string) {
     console.log('Starting polling for asset:', assetId);
     if (this.isPolling) return;
@@ -251,6 +264,10 @@ export class ComicBookService extends ApiBaseService {
           this.stopPolling();
         }
       });
+  }
+
+  getAssetDetails(assetId: string): Observable<AssetDetailsResponse> {
+    return this.get<AssetDetailsResponse>(`ComicBook/assets/${assetId}/details`);
   }
 
   private stopPolling() {

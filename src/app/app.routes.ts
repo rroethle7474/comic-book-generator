@@ -5,6 +5,7 @@ import { ComicBookCreateComponent } from './features/comic-book-create/comic-boo
 import { CreateVoiceModelComponent } from './features/create-voice-model/create-voice-model.component';
 import { AudioRecordingStepComponent } from './features/audio-recording-step/audio-recording-step.component';
 import { CreateComicBookStatusComponent } from './features/create-comic-book-status/create-comic-book-status.component';
+import { ViewComicComponent } from './features/view-comic/view-comic.component';
 
 export const routes: Routes = [
   { path: '', component: LandingPageComponent },  // Default route
@@ -12,5 +13,6 @@ export const routes: Routes = [
   { path: 'create-voice-model', component: CreateVoiceModelComponent },
   { path: 'audio-recording-step', component: AudioRecordingStepComponent },
   { path: 'create-comic-book-status', component: CreateComicBookStatusComponent },
+  { path: 'view-comic/:assetId', component: ViewComicComponent },
   { path: '**', redirectTo: '' }  // Fallback route
 ];

@@ -231,6 +231,14 @@ export interface AssetResponse {
     createdAt: Date;
 }
 
+export interface AssetDetailsResponse {
+  assetId: string;
+  comicBookId: string;
+  filePath: string;
+  fullStoryText: string | null;
+  status: string;
+}
+
 export interface ComicBookStatusResponse {
   status: string;
   progress: number;

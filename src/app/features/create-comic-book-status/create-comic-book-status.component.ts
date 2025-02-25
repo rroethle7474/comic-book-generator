@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ComicBookService } from '../../core/services/comic-book.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -19,12 +19,15 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
   progressWidth: string = '0%';
   estimatedTime: string | null = null;
   statusMessage: string | null = null;
+  isGenerationComplete: boolean = false;
 
   private comicBookId: string | null = null;
   private assetId: string | null = null;
+  private finalAssetUrl: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private comicBookService: ComicBookService,
     private toastr: ToastrService
   ) {}
@@ -67,7 +70,10 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
         this.status = status;
 
         if (status === 'COMPLETED') {
+          this.isGenerationComplete = true;
           this.toastr.success('Comic book generation completed!');
+          // Fetch the asset details to get the URL
+          this.fetchAssetDetails();
         } else if (status === 'ERROR' || status === 'Failed') {
           this.toastr.error('Error generating comic book');
         }
@@ -94,6 +100,59 @@ export class CreateComicBookStatusComponent implements OnInit, OnDestroy {
         this.statusMessage = message;
         if (message) {
           this.toastr.info(message);
+        }
+      });
+  }
+
+  // Fetch asset details when generation is complete
+  private fetchAssetDetails() {
+    if (!this.assetId) return;
+
+    this.comicBookService.getAsset(this.assetId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (asset) => {
+          this.finalAssetUrl = asset.filePath;
+        },
+        error: (error) => {
+          console.error('Error fetching asset details:', error);
+          this.toastr.error('Error retrieving comic book details');
+        }
+      });
+  }
+
+  // View the generated comic
+  viewComic() {
+    if (this.assetId) {
+      this.router.navigate(['/view-comic', this.assetId], {
+        queryParams: {
+          comicBookId: this.comicBookId
+        }
+      });
+    }
+  }
+
+  // Generate PDF of the comic
+  generatePdf() {
+    if (!this.assetId) {
+      this.toastr.error('Comic asset ID is missing');
+      return;
+    }
+
+    this.comicBookService.generateComicBookPdf(this.assetId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (pdfUrl) => {
+          if (pdfUrl) {
+            // If the API returns a URL, open it in a new tab
+            window.open(pdfUrl, '_blank');
+          } else {
+            this.toastr.success('PDF generation initiated. It will be available shortly.');
+          }
+        },
+        error: (error) => {
+          console.error('Error generating PDF:', error);
+          this.toastr.error('Failed to generate PDF');
         }
       });
   }
