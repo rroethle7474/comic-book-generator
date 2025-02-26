@@ -334,12 +334,12 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
       // Initiate the training process
       const response = await this.voiceMimickingService.initiateModelTraining(this.selectedModelId).toPromise();
-
+      console.log("Training Response:", response);
       // Mark the model as completed
-      await this.voiceMimickingService.updateVoiceModel(
-        this.selectedModelId,
-        { isCompleted: true }
-      ).toPromise();
+      // await this.voiceMimickingService.updateVoiceModel(
+      //   this.selectedModelId,
+      //   { isCompleted: true }
+      // ).toPromise();
 
       this.toastr.success('Training started successfully. Your voice model will be ready shortly.');
 
