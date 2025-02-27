@@ -219,7 +219,7 @@ export class ComicBookService extends ApiBaseService {
   }
 
   generateComicBookPdf(assetId: string): Observable<string> {
-    return this.post<string>(`ComicBook/generate-pdf/${assetId}`, {})
+    return this.get<string>(`ComicBook/generate-pdf/${assetId}`)
       .pipe(
         tap(response => {
           return response;

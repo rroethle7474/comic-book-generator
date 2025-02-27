@@ -415,6 +415,13 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     try {
       this.isProcessing = true;
 
+      // Save additional details to the comic book record
+      const additionalDetails = this.comicForm.get('additionalDetails')?.value;
+      await this.comicBookService.updateComicBook(
+        this.selectedComicBookId.value,
+        { additionalDetails }
+      ).toPromise();
+
       // First check if there's an existing asset
       const existingAssets = await this.comicBookService.getAssetsByType(
         this.selectedComicBookId.value,
@@ -479,7 +486,8 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     if (selectedId === 'new') {
       this.comicForm.patchValue({
         title: '',
-        description: ''
+        description: '',
+        additionalDetails: ''
       });
       return;
     }
@@ -488,7 +496,8 @@ export class ComicBookCreateComponent implements OnInit, OnDestroy {
     if (selectedComic) {
       this.comicForm.patchValue({
         title: selectedComic.title,
-        description: selectedComic.description
+        description: selectedComic.description,
+        additionalDetails: selectedComic.additionalDetails || ''
       });
     }
   }
