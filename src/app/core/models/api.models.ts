@@ -158,14 +158,17 @@ export interface SynthesizeSpeechResponse {
 
 export interface CreateVoiceModelRequest {
   voiceModelName: string;
-    voiceModelDescription: string;
-  }
+  voiceModelDescription: string;
+  replicateModelId: string;
+}
 
-  export interface CreateVoiceModelResponse {
-    voiceModelId: string;
-    voiceModelName: string;
-    voiceModelDescription: string;
-  }
+export interface CreateVoiceModelResponse {
+  voiceModelId: string;
+  voiceModelName: string;
+  voiceModelDescription: string;
+  replicateModelId?: string;
+  replicateModelName?: string;
+}
 
 export interface VoiceModelListResponse {
   voiceModelId: string;
@@ -173,11 +176,14 @@ export interface VoiceModelListResponse {
   voiceModelDescription: string;
   isCompleted: boolean;
   trainingDate: Date;
+  replicateModelId: string;
+  replicateModelName: string;
 }
 
 export interface VoiceModelUpdateRequest {
   voiceModelName?: string;
   voiceModelDescription?: string;
+  replicateModelId?: string;
   isCompleted?: boolean;
 }
 
@@ -186,6 +192,12 @@ export interface VoiceModelUpdateResponse {
   voiceModelName: string;
   voiceModelDescription: string;
   isCompleted: boolean;
+}
+
+export interface ReplicateModelListResponse {
+  replicateModelId: string;
+  replicateModelName: string;
+  isCurrentlySelected?: boolean;
 }
 
 export interface AudioSnippetResponse {

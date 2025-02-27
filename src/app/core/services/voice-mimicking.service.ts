@@ -17,7 +17,8 @@ import {
   HuggingFaceModelResponse,
   StepResponse,
   StepWithRecordingResponse,
-  ApiResponse
+  ApiResponse,
+  ReplicateModelListResponse
 } from '../models/api.models';
 
 export interface RecordingState {
@@ -200,5 +201,14 @@ export class VoiceMimickingService extends ApiBaseService {
   // Start a recording session
   startRecording(): Observable<{ recordingSessionId: string; message: string }> {
     return this.post<{ recordingSessionId: string; message: string }>('voice-mimic/start-recording', {});
+  }
+
+  // Get available Replicate models for voice training
+  getAvailableReplicateModels(existingReplicateId?: string): Observable<ReplicateModelListResponse[]> {
+    let url = 'voice-mimic/available-voice-training-models';
+    if (existingReplicateId) {
+      url += `?existingReplicateId=${existingReplicateId}`;
+    }
+    return this.get<ReplicateModelListResponse[]>(url);
   }
 }

@@ -1,7 +1,7 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { VoiceMimickingService } from '../../core/services/voice-mimicking.service';
-import { CreateVoiceModelRequest, VoiceModelUpdateRequest } from '../../core/models/api.models';
+import { CreateVoiceModelRequest, VoiceModelUpdateRequest, ReplicateModelListResponse } from '../../core/models/api.models';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { VoiceModelSelectorComponent } from '../../shared/components/voice-model-selector/voice-model-selector.component';
@@ -24,7 +24,8 @@ export class CreateVoiceModelComponent implements OnInit {
   errorMessage = '';
   isLoading = false;
   selectedModelId: string | null = "";
-  private originalModelData: { name: string, description: string } | null = null;
+  availableReplicateModels: ReplicateModelListResponse[] = [];
+  private originalModelData: { name: string, description: string, replicateModelId?: string } | null = null;
 
   constructor(
     private voiceMimickingService: VoiceMimickingService,
@@ -34,13 +35,40 @@ export class CreateVoiceModelComponent implements OnInit {
 
   ngOnInit() {
     this.initForm();
+    // Only load available models if no model is selected
+    if (!this.selectedModelId) {
+      this.loadAvailableReplicateModels();
+    }
   }
 
   private initForm() {
     this.voiceForm = this.fb.group({
       voiceModelName: ['', Validators.required],
-      voiceModelDescription: ['']
+      voiceModelDescription: [''],
+      replicateModelId: ['', Validators.required]
     });
+  }
+
+  private loadAvailableReplicateModels(existingReplicateId?: string) {
+    this.voiceMimickingService.getAvailableReplicateModels(existingReplicateId)
+      .subscribe({
+        next: (models) => {
+          this.availableReplicateModels = models;
+          console.log('Available Replicate models:', models);
+
+          // If there's a model marked as currently selected, select it in the form
+          const selectedModel = models.find(m => m.isCurrentlySelected);
+          if (selectedModel) {
+            this.voiceForm.patchValue({
+              replicateModelId: selectedModel.replicateModelId
+            });
+          }
+        },
+        error: (err) => {
+          console.error('Error loading Replicate models:', err);
+          this.errorMessage = 'Failed to load available voice training models.';
+        }
+      });
   }
 
   onModelSelected(modelId: string) {
@@ -58,12 +86,18 @@ export class CreateVoiceModelComponent implements OnInit {
               // Store original values
               this.originalModelData = {
                 name: model.voiceModelName,
-                description: model.voiceModelDescription
+                description: model.voiceModelDescription,
+                replicateModelId: model.replicateModelId
               };
+
+              // Load available replicate models with the existing model ID
+              this.loadAvailableReplicateModels(model.replicateModelId);
+
               // Populate the form with the selected model's details
               this.voiceForm.patchValue({
                 voiceModelName: model.voiceModelName,
-                voiceModelDescription: model.voiceModelDescription
+                voiceModelDescription: model.voiceModelDescription,
+                replicateModelId: model.replicateModelId || ''
               });
             }
           }
@@ -72,12 +106,15 @@ export class CreateVoiceModelComponent implements OnInit {
       // Clear the form and original data for new model
       this.voiceForm.reset();
       this.originalModelData = null;
+
+      // Load available replicate models without an existing ID
+      this.loadAvailableReplicateModels();
     }
   }
 
   onSubmit() {
     if (this.voiceForm.invalid) {
-      this.errorMessage = 'Please enter a voice model name.';
+      this.errorMessage = 'Please fill in all required fields.';
       return;
     }
 
@@ -88,14 +125,17 @@ export class CreateVoiceModelComponent implements OnInit {
     if (this.selectedModelId && this.originalModelData) {
       const currentName = this.voiceForm.get('voiceModelName')?.value;
       const currentDescription = this.voiceForm.get('voiceModelDescription')?.value;
+      const currentReplicateModelId = this.voiceForm.get('replicateModelId')?.value;
 
       // Check if there are any changes
       if (currentName !== this.originalModelData.name ||
-          currentDescription !== this.originalModelData.description) {
+          currentDescription !== this.originalModelData.description ||
+          currentReplicateModelId !== this.originalModelData.replicateModelId) {
 
         const updateRequest: VoiceModelUpdateRequest = {
           voiceModelName: currentName,
-          voiceModelDescription: currentDescription
+          voiceModelDescription: currentDescription,
+          replicateModelId: currentReplicateModelId
         };
 
         this.voiceMimickingService.updateVoiceModel(this.selectedModelId, updateRequest)
@@ -122,7 +162,8 @@ export class CreateVoiceModelComponent implements OnInit {
     // Create new model
     const request: CreateVoiceModelRequest = {
       voiceModelName: this.voiceForm.get('voiceModelName')?.value,
-      voiceModelDescription: this.voiceForm.get('voiceModelDescription')?.value
+      voiceModelDescription: this.voiceForm.get('voiceModelDescription')?.value,
+      replicateModelId: this.voiceForm.get('replicateModelId')?.value
     };
 
     this.voiceMimickingService.createVoiceModel(request)
