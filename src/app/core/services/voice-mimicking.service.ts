@@ -98,8 +98,11 @@ export class VoiceMimickingService extends ApiBaseService {
   // Audio recording methods
   uploadAudioSnippet(voiceModelId: string, audioBlob: Blob, stepId: string): Observable<AudioSnippetUploadResponse> {
     const formData = new FormData();
-    formData.append('audioFile', audioBlob, 'recording.wav');
+    // Send as webm file - backend should convert to 24kHz WAV for StyleTTS2 compatibility
+    formData.append('audioFile', audioBlob, 'recording.webm');
     formData.append('stepId', stepId);
+    // Add sample rate information for the backend to use during conversion
+    formData.append('targetSampleRate', '24000');
 
     return this.post<AudioSnippetUploadResponse>(
       `voice-mimic/voice-model/${voiceModelId}/audio-snippet`,
@@ -166,7 +169,10 @@ export class VoiceMimickingService extends ApiBaseService {
   // Add recording for a specific step
   addAudioSnippetForStep(voiceModelId: string, stepId: string, audioBlob: Blob): Observable<AudioSnippetUploadResponse> {
     const formData = new FormData();
-    formData.append('audioFile', audioBlob, 'recording.wav');
+    // Send as webm file - backend should convert to 24kHz WAV for StyleTTS2 compatibility
+    formData.append('audioFile', audioBlob, 'recording.webm');
+    // Add sample rate information for the backend to use during conversion
+    formData.append('targetSampleRate', '24000');
 
     return this.post<AudioSnippetUploadResponse>(
       `voice-mimic/voice-model/${voiceModelId}/step/${stepId}/recording`,

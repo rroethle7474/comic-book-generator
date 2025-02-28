@@ -152,8 +152,19 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
   private async startRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(stream);
+      // Specify audio constraints with 24kHz sample rate for StyleTTS2 compatibility
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+
+      // Create MediaRecorder with options to ensure proper encoding
+      const options = { mimeType: 'audio/webm' };
+      this.mediaRecorder = new MediaRecorder(stream, options);
       const chunks: BlobPart[] = [];
 
       this.mediaRecorder.ondataavailable = (e) => {
@@ -162,7 +173,8 @@ export class AudioRecordingStepComponent implements OnInit, OnDestroy {
 
       this.mediaRecorder.onstop = async () => {
         try {
-          const blob = new Blob(chunks, { type: 'audio/wav' });
+          // Create blob with audio/webm type - the backend will convert to WAV with proper sample rate
+          const blob = new Blob(chunks, { type: 'audio/webm' });
           console.log('Created audio blob:', blob);
 
           if (!this.selectedModelId) {
