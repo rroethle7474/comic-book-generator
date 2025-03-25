@@ -1,5 +1,5 @@
 # ComicBookGenerator
-
+![Landing Page](images/landing.png)
 
 ## Project Description
 A user should be able to create their very own comic book with handdrawn images (or any image), and a story to create scenes. Then a full pdf comic book is created generating new images and a story based on user inputs.
